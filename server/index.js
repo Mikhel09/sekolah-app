@@ -9,7 +9,9 @@ const { verifyToken, allowRoles } = require('./middlewares/auth');
 const app = express();
 const prisma = new PrismaClient();
 
-app.use(cors());
+app.use(cors({
+  origin: ['http://localhost:5173', 'https://sekolah-app.vercel.app'],
+}));
 app.use(express.json());
 
 // ==========================================
