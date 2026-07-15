@@ -1,0 +1,109 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  ADMIN
+  TEACHER
+  STUDENT
+  PARENT
+}
+
+model User {
+  id        Int      @id @default(autoincrement())
+  name      String
+  email     String   @unique
+  password  String
+  role      Role
+  createdAt DateTime @default(now())
+
+  teacher Teacher?
+  student Student?
+}
+
+model Teacher {
+  id     Int    @id @default(autoincrement())
+  userId Int    @unique
+  user   User   @relation(fields: [userId], references: [id])
+  nip    String @unique
+
+  homeroomOf Class[]    @relation("HomeroomTeacher")
+  schedules  Schedule[]
+}
+
+model Student {
+  id      Int    @id @default(autoincrement())
+  userId  Int    @unique
+  user    User   @relation(fields: [userId], references: [id])
+  nis     String @unique
+  classId Int
+  class   Class  @relation(fields: [classId], references: [id])
+
+  attendances Attendance[]
+  grades      Grade[]
+}
+
+model Class {
+  id                Int      @id @default(autoincrement())
+  name              String
+  homeroomTeacherId Int?
+  homeroomTeacher   Teacher? @relation("HomeroomTeacher", fields: [homeroomTeacherId], references: [id])
+
+  students  Student[]
+  schedules Schedule[]
+}
+
+model Subject {
+  id   Int    @id @default(autoincrement())
+  name String
+
+  schedules Schedule[]
+  grades    Grade[]
+}
+
+model Schedule {
+  id        Int    @id @default(autoincrement())
+  classId   Int
+  subjectId Int
+  teacherId Int
+  day       String
+  startTime String
+  endTime   String
+
+  class   Class   @relation(fields: [classId], references: [id])
+  subject Subject @relation(fields: [subjectId], references: [id])
+  teacher Teacher @relation(fields: [teacherId], references: [id])
+}
+
+model Attendance {
+  id        Int      @id @default(autoincrement())
+  studentId Int
+  date      DateTime
+  status    String
+
+  student Student @relation(fields: [studentId], references: [id])
+}
+
+model Grade {
+  id        Int    @id @default(autoincrement())
+  studentId Int
+  subjectId Int
+  semester  String
+  type      String
+  score     Float
+
+  student Student @relation(fields: [studentId], references: [id])
+  subject Subject @relation(fields: [subjectId], references: [id])
+}
+
+model Announcement {
+  id        Int      @id @default(autoincrement())
+  title     String
+  content   String
+  createdAt DateTime @default(now())
+}
