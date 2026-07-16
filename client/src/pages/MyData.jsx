@@ -1,4 +1,6 @@
 import { useEffect, useState } from 'react';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
 import api from '../services/api';
 
 function MyData() {
@@ -19,9 +21,69 @@ function MyData() {
     ALPA: 'bg-red-50 text-red-700',
   };
 
+  const handleDownloadPDF = () => {
+    const doc = new jsPDF();
+
+    // Judul
+    doc.setFontSize(16);
+    doc.text('Rapor Siswa', 14, 18);
+
+    // Info siswa
+    doc.setFontSize(11);
+    doc.text(`Nama   : ${data.user.name}`, 14, 28);
+    doc.text(`NIS    : ${data.nis}`, 14, 34);
+    doc.text(`Kelas  : ${data.class.name}`, 14, 40);
+
+    // Tabel nilai
+    doc.setFontSize(13);
+    doc.text('Nilai', 14, 52);
+    autoTable(doc, {
+      startY: 56,
+      head: [['Mata Pelajaran', 'Jenis', 'Semester', 'Nilai']],
+      body: data.grades.map((g) => [
+        g.subject.name,
+        g.type,
+        g.semester,
+        g.score,
+      ]),
+      theme: 'grid',
+      headStyles: { fillColor: [59, 130, 246] }, // biru
+    });
+
+    // Tabel absensi (posisinya otomatis di bawah tabel nilai)
+    const finalYNilai = doc.lastAutoTable.finalY || 60;
+    doc.setFontSize(13);
+    doc.text('Riwayat Absensi', 14, finalYNilai + 10);
+    autoTable(doc, {
+      startY: finalYNilai + 14,
+      head: [['Tanggal', 'Status']],
+      body: data.attendances.map((a) => [
+        new Date(a.date).toLocaleDateString('id-ID', {
+          day: 'numeric',
+          month: 'long',
+          year: 'numeric',
+        }),
+        a.status,
+      ]),
+      theme: 'grid',
+      headStyles: { fillColor: [59, 130, 246] },
+    });
+
+    // Simpan / download file
+    doc.save(`Rapor-${data.user.name}-${data.nis}.pdf`);
+  };
+
   return (
     <div>
-      <h1 className="text-2xl font-bold text-slate-800 mb-1">Data Saya</h1>
+      <div className="flex justify-between items-center mb-1">
+        <h1 className="text-2xl font-bold text-slate-800">Data Saya</h1>
+        <button
+          onClick={handleDownloadPDF}
+          className="bg-green-600 hover:bg-green-700 text-white text-sm font-medium px-4 py-2 rounded-md transition-colors"
+        >
+          Download Rapor (PDF)
+        </button>
+      </div>
       <p className="text-slate-500 mb-6">
         {data.user.name} — NIS {data.nis} — Kelas {data.class.name}
       </p>
