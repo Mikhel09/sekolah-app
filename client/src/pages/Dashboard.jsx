@@ -56,9 +56,8 @@ function Dashboard() {
             </div>
           </div>
 
-          {/* Grafik */}
-          <div className="grid grid-cols-2 gap-6">
-            {/* Grafik batang: siswa per kelas */}
+          {/* Grafik baris 1: siswa per kelas & distribusi absensi */}
+          <div className="grid grid-cols-2 gap-6 mb-6">
             <div className="bg-white border border-slate-200 rounded-lg p-5 shadow-sm">
               <h3 className="font-semibold text-slate-700 mb-4">Jumlah Siswa per Kelas</h3>
               <ResponsiveContainer width="100%" height={250}>
@@ -72,7 +71,6 @@ function Dashboard() {
               </ResponsiveContainer>
             </div>
 
-            {/* Grafik lingkaran: distribusi absensi */}
             <div className="bg-white border border-slate-200 rounded-lg p-5 shadow-sm">
               <h3 className="font-semibold text-slate-700 mb-4">Distribusi Status Absensi</h3>
               {stats.attendanceDistribution.length === 0 ? (
@@ -99,6 +97,24 @@ function Dashboard() {
                 </ResponsiveContainer>
               )}
             </div>
+          </div>
+
+          {/* Grafik baris 2: rata-rata nilai per mapel */}
+          <div className="bg-white border border-slate-200 rounded-lg p-5 shadow-sm">
+            <h3 className="font-semibold text-slate-700 mb-4">Rata-rata Nilai per Mata Pelajaran</h3>
+            {stats.averageScorePerSubject.length === 0 ? (
+              <p className="text-slate-400 text-sm">Belum ada data nilai</p>
+            ) : (
+              <ResponsiveContainer width="100%" height={280}>
+                <BarChart data={stats.averageScorePerSubject}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+                  <XAxis dataKey="name" stroke="#64748b" fontSize={12} />
+                  <YAxis stroke="#64748b" fontSize={12} domain={[0, 100]} />
+                  <Tooltip />
+                  <Bar dataKey="rataRata" fill="#8b5cf6" radius={[4, 4, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            )}
           </div>
         </div>
       )}
