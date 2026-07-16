@@ -12,7 +12,7 @@ const prisma = new PrismaClient();
 app.use(cors({
   origin: ['http://localhost:5173', 'https://sekolah-app-eta.vercel.app'],
 }));
-app.use(express.json());
+app.use(express.json({ limit: '5mb' }));
 
 // ==========================================
 // ENDPOINT TES
