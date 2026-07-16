@@ -14,6 +14,7 @@ import Schedules from './pages/Schedules';
 import MySchedule from './pages/MySchedule';
 import Announcements from './pages/Announcements';
 import Profile from './pages/Profile';
+import ClassDetail from './pages/ClassDetail';
 
 function App() {
   return (
@@ -122,6 +123,14 @@ function App() {
             element={
               <ProtectedRoute>
                 <Profile />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/classes/:id"
+            element={
+              <ProtectedRoute allowedRoles={['ADMIN']}>
+                <ClassDetail />
               </ProtectedRoute>
             }
           />

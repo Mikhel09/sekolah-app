@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 import api from '../services/api';
 
 function Classes() {
@@ -86,11 +87,14 @@ function Classes() {
           <tbody>
             {classes.map((c) => (
               <tr key={c.id} className="border-b border-slate-100 last:border-0 hover:bg-slate-50">
-                <td className="px-4 py-3">
-                  <span className="bg-blue-50 text-blue-700 px-2 py-0.5 rounded text-xs font-medium">
-                    {c.name}
-                  </span>
-                </td>
+              <td>
+                <Link
+                  to={`/classes/${c.id}`}
+                  className="bg-blue-50 text-blue-700 hover:bg-blue-100 px-2 py-0.5 rounded text-xs font-medium"
+                >
+                  {c.name}
+                </Link>
+              </td>
                 <td className="px-4 py-3 text-slate-600">
                   {c.homeroomTeacher ? c.homeroomTeacher.user.name : '-'}
                 </td>

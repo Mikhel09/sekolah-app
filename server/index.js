@@ -413,6 +413,37 @@ app.delete('/api/classes/:id', verifyToken, allowRoles('ADMIN'), async (req, res
   }
 });
 
+// Ambil detail lengkap satu kelas: info, siswa, dan jadwal
+app.get('/api/classes/:id', verifyToken, async (req, res) => {
+  const id = Number(req.params.id);
+  try {
+    const kelas = await prisma.class.findUnique({
+      where: { id },
+      include: {
+        students: { include: { user: true } },
+        homeroomTeacher: { include: { user: true } },
+      },
+    });
+
+    if (!kelas) {
+      return res.status(404).json({ error: 'Kelas tidak ditemukan' });
+    }
+
+    const schedules = await prisma.schedule.findMany({
+      where: { classId: id },
+      include: {
+        subject: true,
+        teacher: { include: { user: true } },
+      },
+      orderBy: { day: 'asc' },
+    });
+
+    res.json({ ...kelas, schedules });
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
 // ==== ENDPOINT MATA PELAJARAN ====
 
 app.get('/api/subjects', verifyToken, async (req, res) => {
