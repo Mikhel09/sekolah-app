@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react';
+import * as XLSX from 'xlsx';
 import api from '../services/api';
 import ImportExcel from '../components/ImportExcel';
+import Pagination from '../components/Pagination';
 
 const HARI = ['Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
 
@@ -16,6 +18,10 @@ function Schedules() {
   const [day, setDay] = useState('Senin');
   const [startTime, setStartTime] = useState('');
   const [endTime, setEndTime] = useState('');
+
+  const [searchTerm, setSearchTerm] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 10;
 
   const loadSchedules = () => {
     api.get('/schedules').then((res) => setSchedules(res.data));
@@ -46,11 +52,49 @@ function Schedules() {
     loadSchedules();
   };
 
+  const handleExportExcel = () => {
+    const dataForExcel = filteredSchedules.map((s) => ({
+      Hari: s.day,
+      Jam: `${s.startTime} - ${s.endTime}`,
+      Kelas: s.class.name,
+      'Mata Pelajaran': s.subject.name,
+      Guru: s.teacher.user.name,
+    }));
+    const worksheet = XLSX.utils.json_to_sheet(dataForExcel);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'Jadwal');
+    XLSX.writeFile(workbook, 'Jadwal-Pelajaran.xlsx');
+  };
+
+  const filteredSchedules = schedules.filter((s) => {
+    const keyword = searchTerm.toLowerCase();
+    return (
+      s.class.name.toLowerCase().includes(keyword) ||
+      s.subject.name.toLowerCase().includes(keyword) ||
+      s.teacher.user.name.toLowerCase().includes(keyword) ||
+      s.day.toLowerCase().includes(keyword)
+    );
+  });
+
+  const paginatedSchedules = filteredSchedules.slice(
+    (currentPage - 1) * itemsPerPage,
+    currentPage * itemsPerPage
+  );
+
   const inputClass = "border border-slate-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500";
 
   return (
     <div>
-      <h1 className="text-2xl font-bold text-slate-800 mb-6">Jadwal Pelajaran</h1>
+      <div className="flex justify-between items-center mb-6">
+        <h1 className="text-2xl font-bold text-slate-800">Jadwal Pelajaran</h1>
+        <button
+          onClick={handleExportExcel}
+          className="bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-medium px-4 py-2 rounded-md transition-colors"
+        >
+          Export ke Excel
+        </button>
+      </div>
+
       <ImportExcel
         endpoint="/schedules/import"
         onSuccess={loadSchedules}
@@ -109,6 +153,17 @@ function Schedules() {
         </button>
       </form>
 
+      <input
+        type="text"
+        placeholder="Cari kelas, mapel, guru, atau hari..."
+        value={searchTerm}
+        onChange={(e) => {
+          setSearchTerm(e.target.value);
+          setCurrentPage(1);
+        }}
+        className="w-full border border-slate-300 rounded-md px-3 py-2 text-sm mb-4 focus:outline-none focus:ring-2 focus:ring-blue-500"
+      />
+
       <div className="bg-white border border-slate-200 rounded-lg overflow-hidden shadow-sm">
         <table className="w-full text-sm">
           <thead className="bg-slate-50 border-b border-slate-200">
@@ -122,7 +177,14 @@ function Schedules() {
             </tr>
           </thead>
           <tbody>
-            {schedules.map((s) => (
+            {paginatedSchedules.length === 0 && (
+              <tr>
+                <td colSpan="6" className="px-4 py-4 text-center text-slate-400">
+                  Tidak ada data ditemukan
+                </td>
+              </tr>
+            )}
+            {paginatedSchedules.map((s) => (
               <tr key={s.id} className="border-b border-slate-100 last:border-0 hover:bg-slate-50">
                 <td className="px-4 py-3">{s.day}</td>
                 <td className="px-4 py-3 text-slate-500">{s.startTime} - {s.endTime}</td>
@@ -142,6 +204,13 @@ function Schedules() {
           </tbody>
         </table>
       </div>
+
+      <Pagination
+        currentPage={currentPage}
+        totalItems={filteredSchedules.length}
+        itemsPerPage={itemsPerPage}
+        onPageChange={setCurrentPage}
+      />
     </div>
   );
 }
