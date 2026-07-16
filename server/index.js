@@ -378,9 +378,14 @@ app.get('/api/classes', verifyToken, async (req, res) => {
 
 // Tambah kelas baru — hanya ADMIN
 app.post('/api/classes', verifyToken, allowRoles('ADMIN'), async (req, res) => {
-  const { name } = req.body;
+  const { name, homeroomTeacherId } = req.body;
   try {
-    const kelas = await prisma.class.create({ data: { name } });
+    const kelas = await prisma.class.create({
+      data: {
+        name,
+        homeroomTeacherId: homeroomTeacherId ? Number(homeroomTeacherId) : null,
+      },
+    });
     res.json(kelas);
   } catch (err) {
     res.status(400).json({ error: err.message });
@@ -390,11 +395,14 @@ app.post('/api/classes', verifyToken, allowRoles('ADMIN'), async (req, res) => {
 // Edit kelas — hanya ADMIN
 app.put('/api/classes/:id', verifyToken, allowRoles('ADMIN'), async (req, res) => {
   const id = Number(req.params.id);
-  const { name } = req.body;
+  const { name, homeroomTeacherId } = req.body;
   try {
     const updated = await prisma.class.update({
       where: { id },
-      data: { name },
+      data: {
+        name,
+        homeroomTeacherId: homeroomTeacherId ? Number(homeroomTeacherId) : null,
+      },
     });
     res.json(updated);
   } catch (err) {

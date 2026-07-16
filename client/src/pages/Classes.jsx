@@ -4,7 +4,9 @@ import api from '../services/api';
 
 function Classes() {
   const [classes, setClasses] = useState([]);
+  const [teachers, setTeachers] = useState([]);
   const [name, setName] = useState('');
+  const [homeroomTeacherId, setHomeroomTeacherId] = useState('');
   const [editingId, setEditingId] = useState(null);
 
   const loadClasses = () => {
@@ -13,19 +15,21 @@ function Classes() {
 
   useEffect(() => {
     loadClasses();
+    api.get('/teachers').then((res) => setTeachers(res.data));
   }, []);
 
   const resetForm = () => {
     setName('');
+    setHomeroomTeacherId('');
     setEditingId(null);
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (editingId) {
-      await api.put(`/classes/${editingId}`, { name });
+      await api.put(`/classes/${editingId}`, { name, homeroomTeacherId });
     } else {
-      await api.post('/classes', { name });
+      await api.post('/classes', { name, homeroomTeacherId });
     }
     resetForm();
     loadClasses();
@@ -34,6 +38,7 @@ function Classes() {
   const handleEditClick = (kelas) => {
     setEditingId(kelas.id);
     setName(kelas.name);
+    setHomeroomTeacherId(kelas.homeroomTeacherId || '');
   };
 
   const handleDelete = async (id) => {
@@ -57,6 +62,16 @@ function Classes() {
           className={inputClass}
           required
         />
+        <select
+          value={homeroomTeacherId}
+          onChange={(e) => setHomeroomTeacherId(e.target.value)}
+          className={inputClass}
+        >
+          <option value="">Tanpa wali kelas</option>
+          {teachers.map((t) => (
+            <option key={t.id} value={t.id}>{t.user.name}</option>
+          ))}
+        </select>
         <button
           type="submit"
           className="bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium px-4 py-2 rounded-md transition-colors"
@@ -87,14 +102,14 @@ function Classes() {
           <tbody>
             {classes.map((c) => (
               <tr key={c.id} className="border-b border-slate-100 last:border-0 hover:bg-slate-50">
-              <td>
-                <Link
-                  to={`/classes/${c.id}`}
-                  className="bg-blue-50 text-blue-700 hover:bg-blue-100 px-2 py-0.5 rounded text-xs font-medium"
-                >
-                  {c.name}
-                </Link>
-              </td>
+                <td className="px-4 py-3">
+                  <Link
+                    to={`/classes/${c.id}`}
+                    className="bg-blue-50 text-blue-700 hover:bg-blue-100 px-2 py-0.5 rounded text-xs font-medium"
+                  >
+                    {c.name}
+                  </Link>
+                </td>
                 <td className="px-4 py-3 text-slate-600">
                   {c.homeroomTeacher ? c.homeroomTeacher.user.name : '-'}
                 </td>
