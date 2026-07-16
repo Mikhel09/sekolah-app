@@ -8,6 +8,11 @@ const { verifyToken, allowRoles } = require('./middlewares/auth');
 
 const app = express();
 const prisma = new PrismaClient();
+const multer = require('multer');
+const XLSX = require('xlsx');
+
+// Multer akan menyimpan file sementara di memory (tidak ditulis ke disk), lalu kita baca langsung
+const upload = multer({ storage: multer.memoryStorage() });
 
 app.use(cors({
   origin: ['http://localhost:5173', 'https://sekolah-app-eta.vercel.app'],
@@ -247,6 +252,47 @@ app.get('/api/me/student/schedule', verifyToken, allowRoles('STUDENT'), async (r
   }
 });
 
+app.post('/api/students/import', verifyToken, allowRoles('ADMIN'), upload.single('file'), async (req, res) => {
+  try {
+    const workbook = XLSX.read(req.file.buffer, { type: 'buffer' });
+    const sheet = workbook.Sheets[workbook.SheetNames[0]];
+    const rows = XLSX.utils.sheet_to_json(sheet); // ubah jadi array of object
+
+    const hasil = { berhasil: 0, gagal: [] };
+
+    for (const row of rows) {
+      try {
+        const { name, nis, className } = row;
+
+        const kelas = await prisma.class.findFirst({ where: { name: String(className) } });
+        if (!kelas) {
+          hasil.gagal.push({ row, alasan: `Kelas "${className}" tidak ditemukan` });
+          continue;
+        }
+
+        const password = await bcrypt.hash('password123', 10);
+        await prisma.user.create({
+          data: {
+            name: String(name),
+            email: `${nis}@siswa.sekolah.com`,
+            password,
+            role: 'STUDENT',
+            student: { create: { nis: String(nis), classId: kelas.id } },
+          },
+        });
+
+        hasil.berhasil++;
+      } catch (err) {
+        hasil.gagal.push({ row, alasan: err.message });
+      }
+    }
+
+    res.json(hasil);
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
 // Ambil daftar kelas yang diajar oleh guru yang sedang login
 app.get('/api/me/teacher/classes', verifyToken, allowRoles('TEACHER'), async (req, res) => {
   try {
@@ -280,6 +326,41 @@ app.get('/api/me/teacher/classes', verifyToken, allowRoles('TEACHER'), async (re
         (subj, index, arr) => arr.findIndex((x) => x.id === subj.id) === index
       ),
     });
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+app.post('/api/teachers/import', verifyToken, allowRoles('ADMIN'), upload.single('file'), async (req, res) => {
+  try {
+    const workbook = XLSX.read(req.file.buffer, { type: 'buffer' });
+    const sheet = workbook.Sheets[workbook.SheetNames[0]];
+    const rows = XLSX.utils.sheet_to_json(sheet);
+
+    const hasil = { berhasil: 0, gagal: [] };
+
+    for (const row of rows) {
+      try {
+        const { name, email, nip } = row;
+        const password = await bcrypt.hash('ganti123', 10);
+
+        await prisma.user.create({
+          data: {
+            name: String(name),
+            email: String(email),
+            password,
+            role: 'TEACHER',
+            teacher: { create: { nip: String(nip) } },
+          },
+        });
+
+        hasil.berhasil++;
+      } catch (err) {
+        hasil.gagal.push({ row, alasan: err.message });
+      }
+    }
+
+    res.json(hasil);
   } catch (err) {
     res.status(400).json({ error: err.message });
   }
@@ -452,6 +533,29 @@ app.get('/api/classes/:id', verifyToken, async (req, res) => {
   }
 });
 
+app.post('/api/classes/import', verifyToken, allowRoles('ADMIN'), upload.single('file'), async (req, res) => {
+  try {
+    const workbook = XLSX.read(req.file.buffer, { type: 'buffer' });
+    const sheet = workbook.Sheets[workbook.SheetNames[0]];
+    const rows = XLSX.utils.sheet_to_json(sheet);
+
+    const hasil = { berhasil: 0, gagal: [] };
+
+    for (const row of rows) {
+      try {
+        await prisma.class.create({ data: { name: String(row.name) } });
+        hasil.berhasil++;
+      } catch (err) {
+        hasil.gagal.push({ row, alasan: err.message });
+      }
+    }
+
+    res.json(hasil);
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
 // ==== ENDPOINT MATA PELAJARAN ====
 
 app.get('/api/subjects', verifyToken, async (req, res) => {
@@ -474,6 +578,29 @@ app.delete('/api/subjects/:id', verifyToken, allowRoles('ADMIN'), async (req, re
   try {
     await prisma.subject.delete({ where: { id } });
     res.json({ message: 'Mata pelajaran dihapus' });
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+app.post('/api/subjects/import', verifyToken, allowRoles('ADMIN'), upload.single('file'), async (req, res) => {
+  try {
+    const workbook = XLSX.read(req.file.buffer, { type: 'buffer' });
+    const sheet = workbook.Sheets[workbook.SheetNames[0]];
+    const rows = XLSX.utils.sheet_to_json(sheet);
+
+    const hasil = { berhasil: 0, gagal: [] };
+
+    for (const row of rows) {
+      try {
+        await prisma.subject.create({ data: { name: String(row.name) } });
+        hasil.berhasil++;
+      } catch (err) {
+        hasil.gagal.push({ row, alasan: err.message });
+      }
+    }
+
+    res.json(hasil);
   } catch (err) {
     res.status(400).json({ error: err.message });
   }
@@ -517,6 +644,62 @@ app.delete('/api/schedules/:id', verifyToken, allowRoles('ADMIN'), async (req, r
   try {
     await prisma.schedule.delete({ where: { id } });
     res.json({ message: 'Jadwal dihapus' });
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+app.post('/api/schedules/import', verifyToken, allowRoles('ADMIN'), upload.single('file'), async (req, res) => {
+  try {
+    const workbook = XLSX.read(req.file.buffer, { type: 'buffer' });
+    const sheet = workbook.Sheets[workbook.SheetNames[0]];
+    const rows = XLSX.utils.sheet_to_json(sheet);
+
+    const hasil = { berhasil: 0, gagal: [] };
+
+    for (const row of rows) {
+      try {
+        const { className, subjectName, teacherEmail, day, startTime, endTime } = row;
+
+        const kelas = await prisma.class.findFirst({ where: { name: String(className) } });
+        if (!kelas) {
+          hasil.gagal.push({ row, alasan: `Kelas "${className}" tidak ditemukan` });
+          continue;
+        }
+
+        const subject = await prisma.subject.findFirst({ where: { name: String(subjectName) } });
+        if (!subject) {
+          hasil.gagal.push({ row, alasan: `Mapel "${subjectName}" tidak ditemukan` });
+          continue;
+        }
+
+        const teacherUser = await prisma.user.findUnique({
+          where: { email: String(teacherEmail) },
+          include: { teacher: true },
+        });
+        if (!teacherUser || !teacherUser.teacher) {
+          hasil.gagal.push({ row, alasan: `Guru dengan email "${teacherEmail}" tidak ditemukan` });
+          continue;
+        }
+
+        await prisma.schedule.create({
+          data: {
+            classId: kelas.id,
+            subjectId: subject.id,
+            teacherId: teacherUser.teacher.id,
+            day: String(day),
+            startTime: String(startTime),
+            endTime: String(endTime),
+          },
+        });
+
+        hasil.berhasil++;
+      } catch (err) {
+        hasil.gagal.push({ row, alasan: err.message });
+      }
+    }
+
+    res.json(hasil);
   } catch (err) {
     res.status(400).json({ error: err.message });
   }
