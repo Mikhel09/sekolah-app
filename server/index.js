@@ -1,3 +1,4 @@
+
 require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
@@ -800,6 +801,85 @@ app.get('/api/dashboard/stats', verifyToken, allowRoles('ADMIN'), async (req, re
       attendanceDistribution,
       averageScorePerSubject,
     });
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+// Laporan absensi bulanan per kelas — ADMIN dan TEACHER
+app.get('/api/reports/attendance', verifyToken, allowRoles('ADMIN', 'TEACHER'), async (req, res) => {
+  const { classId, month, year } = req.query;
+
+  if (!classId || !month || !year) {
+    return res.status(400).json({ error: 'classId, month, dan year wajib diisi' });
+  }
+
+  try {
+    const startDate = new Date(Number(year), Number(month) - 1, 1);
+    const endDate = new Date(Number(year), Number(month), 0, 23, 59, 59);
+
+    const students = await prisma.student.findMany({
+      where: { classId: Number(classId) },
+      include: {
+        user: true,
+        attendances: {
+          where: { date: { gte: startDate, lte: endDate } },
+        },
+      },
+    });
+
+    const laporan = students.map((s) => {
+      const hitung = { HADIR: 0, IZIN: 0, SAKIT: 0, ALPA: 0 };
+      s.attendances.forEach((a) => {
+        hitung[a.status] = (hitung[a.status] || 0) + 1;
+      });
+      const totalTercatat = s.attendances.length;
+      const persentaseHadir = totalTercatat > 0
+        ? Math.round((hitung.HADIR / totalTercatat) * 100)
+        : 0;
+
+      return {
+        nama: s.user.name,
+        nis: s.nis,
+        hadir: hitung.HADIR,
+        izin: hitung.IZIN,
+        sakit: hitung.SAKIT,
+        alpa: hitung.ALPA,
+        persentaseHadir,
+      };
+    });
+
+    res.json(laporan);
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+// Perbandingan rata-rata nilai antar kelas — hanya ADMIN
+app.get('/api/reports/class-comparison', verifyToken, allowRoles('ADMIN'), async (req, res) => {
+  try {
+    const classes = await prisma.class.findMany({
+      include: {
+        students: {
+          include: { grades: true },
+        },
+      },
+    });
+
+    const comparison = classes.map((c) => {
+      const allScores = c.students.flatMap((s) => s.grades.map((g) => g.score));
+      const rataRata = allScores.length > 0
+        ? Math.round((allScores.reduce((sum, s) => sum + s, 0) / allScores.length) * 10) / 10
+        : 0;
+
+      return {
+        name: c.name,
+        rataRata,
+        jumlahSiswa: c.students.length,
+      };
+    });
+
+    res.json(comparison);
   } catch (err) {
     res.status(400).json({ error: err.message });
   }

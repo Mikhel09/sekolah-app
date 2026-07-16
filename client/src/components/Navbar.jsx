@@ -37,6 +37,12 @@ function Navbar() {
         {user && user.role === 'TEACHER' && (
           <Link to="/my-classes" className={linkClass}>Kelas Saya</Link>
         )}
+        {user && (user.role === 'ADMIN' || user.role === 'TEACHER') && (
+          <Link to="/reports/attendance" className={linkClass}>Laporan Absensi</Link>
+        )}
+        {user && user.role === 'ADMIN' && (
+          <Link to="/reports/class-comparison" className={linkClass}>Perbandingan Kelas</Link>
+        )}
         {user && user.role === 'STUDENT' && (
           <Link to="/my-data" className={linkClass}>Data Saya</Link>
         )}

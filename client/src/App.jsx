@@ -16,6 +16,8 @@ import Announcements from './pages/Announcements';
 import Profile from './pages/Profile';
 import ClassDetail from './pages/ClassDetail';
 import StudentDetail from './pages/StudentDetail';
+import AttendanceReport from './pages/AttendanceReport';
+import ClassComparison from './pages/ClassComparison';
 
 function App() {
   return (
@@ -140,6 +142,23 @@ function App() {
             element={
               <ProtectedRoute allowedRoles={['ADMIN', 'TEACHER']}>
                 <StudentDetail />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/reports/attendance"
+            element={
+              <ProtectedRoute allowedRoles={['ADMIN', 'TEACHER']}>
+                <AttendanceReport />
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/reports/class-comparison"
+            element={
+              <ProtectedRoute allowedRoles={['ADMIN']}>
+                <ClassComparison />
               </ProtectedRoute>
             }
           />
