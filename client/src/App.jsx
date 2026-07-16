@@ -15,6 +15,7 @@ import MySchedule from './pages/MySchedule';
 import Announcements from './pages/Announcements';
 import Profile from './pages/Profile';
 import ClassDetail from './pages/ClassDetail';
+import StudentDetail from './pages/StudentDetail';
 
 function App() {
   return (
@@ -131,6 +132,14 @@ function App() {
             element={
               <ProtectedRoute allowedRoles={['ADMIN']}>
                 <ClassDetail />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/students/:id"
+            element={
+              <ProtectedRoute allowedRoles={['ADMIN', 'TEACHER']}>
+                <StudentDetail />
               </ProtectedRoute>
             }
           />
