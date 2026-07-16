@@ -527,12 +527,29 @@ app.get('/api/dashboard/stats', verifyToken, allowRoles('ADMIN'), async (req, re
       value: a._count.status,
     }));
 
+    // Rata-rata nilai per mata pelajaran (untuk grafik batang baru)
+    const gradesGrouped = await prisma.grade.groupBy({
+      by: ['subjectId'],
+      _avg: { score: true },
+    });
+
+    // groupBy cuma kasih subjectId (angka), jadi kita perlu "tempelkan" nama mapelnya
+    const allSubjects = await prisma.subject.findMany();
+    const averageScorePerSubject = gradesGrouped.map((g) => {
+      const subject = allSubjects.find((s) => s.id === g.subjectId);
+      return {
+        name: subject ? subject.name : 'Tidak diketahui',
+        rataRata: Math.round((g._avg.score || 0) * 10) / 10, // dibulatkan 1 angka desimal
+      };
+    });
+
     res.json({
       totalStudents,
       totalTeachers,
       totalClasses,
       studentsPerClass,
       attendanceDistribution,
+      averageScorePerSubject,
     });
   } catch (err) {
     res.status(400).json({ error: err.message });
