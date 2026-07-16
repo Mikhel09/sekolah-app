@@ -1,11 +1,10 @@
-import ImportExcel from '../components/ImportExcel';
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import * as XLSX from 'xlsx';
 import api from '../services/api';
-
+import ImportExcel from '../components/ImportExcel';
 import Pagination from '../components/Pagination';
 
 function Students() {
