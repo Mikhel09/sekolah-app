@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import api from '../services/api';
+import ImportExcel from '../components/ImportExcel';
 
 const HARI = ['Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
 
@@ -50,6 +51,11 @@ function Schedules() {
   return (
     <div>
       <h1 className="text-2xl font-bold text-slate-800 mb-6">Jadwal Pelajaran</h1>
+      <ImportExcel
+        endpoint="/schedules/import"
+        onSuccess={loadSchedules}
+        contohKolom="className, subjectName, teacherEmail, day, startTime, endTime"
+      />
 
       <form onSubmit={handleSubmit} className="bg-white border border-slate-200 rounded-lg p-4 mb-6 flex flex-wrap gap-3 items-center shadow-sm">
         <select value={classId} onChange={(e) => setClassId(e.target.value)} className={inputClass} required>

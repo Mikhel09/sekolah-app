@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import api from '../services/api';
+import ImportExcel from '../components/ImportExcel';
 
 function Students() {
   const [students, setStudents] = useState([]);
@@ -55,6 +56,11 @@ function Students() {
   return (
     <div>
       <h1 className="text-2xl font-bold text-slate-800 mb-6">Data Siswa</h1>
+      <ImportExcel
+        endpoint="/students/import"
+        onSuccess={loadStudents}
+        contohKolom="name, nis, className"
+      />
 
       <form onSubmit={handleSubmit} className="bg-white border border-slate-200 rounded-lg p-4 mb-6 flex flex-wrap gap-3 items-center shadow-sm">
         <input

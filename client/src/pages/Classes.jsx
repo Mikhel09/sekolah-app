@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import api from '../services/api';
+import ImportExcel from '../components/ImportExcel';
 
 function Classes() {
   const [classes, setClasses] = useState([]);
