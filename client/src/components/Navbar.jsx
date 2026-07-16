@@ -38,6 +38,12 @@ function Navbar() {
           <Link to="/my-classes" className={linkClass}>Kelas Saya</Link>
         )}
         {user && (user.role === 'ADMIN' || user.role === 'TEACHER') && (
+          <Link to="/questions" className={linkClass}>Bank Soal</Link>
+        )}
+        {user && (user.role === 'ADMIN' || user.role === 'TEACHER') && (
+          <Link to="/exams" className={linkClass}>Ujian</Link>
+        )}
+        {user && (user.role === 'ADMIN' || user.role === 'TEACHER') && (
           <Link to="/reports/attendance" className={linkClass}>Laporan Absensi</Link>
         )}
         {user && user.role === 'ADMIN' && (
@@ -48,6 +54,9 @@ function Navbar() {
         )}
         {user && user.role === 'STUDENT' && (
           <Link to="/my-schedule" className={linkClass}>Jadwal Saya</Link>
+        )}
+        {user && user.role === 'STUDENT' && (
+          <Link to="/my-exams" className={linkClass}>Ujian Saya</Link>
         )}
         {user && (
           <Link to="/announcements" className={linkClass}>Pengumuman</Link>

@@ -18,6 +18,11 @@ import ClassDetail from './pages/ClassDetail';
 import StudentDetail from './pages/StudentDetail';
 import AttendanceReport from './pages/AttendanceReport';
 import ClassComparison from './pages/ClassComparison';
+import Questions from './pages/Questions';
+import Exams from './pages/Exams';
+import ExamResults from './pages/ExamResults';
+import StudentExams from './pages/StudentExams';
+import TakeExam from './pages/TakeExam';
 
 function App() {
   return (
@@ -159,6 +164,50 @@ function App() {
             element={
               <ProtectedRoute allowedRoles={['ADMIN']}>
                 <ClassComparison />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/questions"
+            element={
+              <ProtectedRoute allowedRoles={['ADMIN', 'TEACHER']}>
+                <Questions />
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/exams"
+            element={
+              <ProtectedRoute allowedRoles={['ADMIN', 'TEACHER']}>
+                <Exams />
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/exams/:id/results"
+            element={
+              <ProtectedRoute allowedRoles={['ADMIN', 'TEACHER']}>
+                <ExamResults />
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/my-exams"
+            element={
+              <ProtectedRoute allowedRoles={['STUDENT']}>
+                <StudentExams />
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/exams/:id/take"
+            element={
+              <ProtectedRoute allowedRoles={['STUDENT']}>
+                <TakeExam />
               </ProtectedRoute>
             }
           />
