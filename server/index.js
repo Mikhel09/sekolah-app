@@ -79,6 +79,33 @@ app.put('/api/me/password', verifyToken, async (req, res) => {
   }
 });
 
+// Ambil profil lengkap user yang sedang login (termasuk foto)
+app.get('/api/me', verifyToken, async (req, res) => {
+  try {
+    const user = await prisma.user.findUnique({
+      where: { id: req.user.userId },
+      select: { id: true, name: true, email: true, role: true, photo: true },
+    });
+    res.json(user);
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+// Update foto profil milik user yang sedang login
+app.put('/api/me/photo', verifyToken, async (req, res) => {
+  const { photo } = req.body;
+  try {
+    const updated = await prisma.user.update({
+      where: { id: req.user.userId },
+      data: { photo },
+      select: { id: true, name: true, email: true, role: true, photo: true },
+    });
+    res.json(updated);
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
 // ==========================================
 // ENDPOINT SISWA
 // ==========================================

@@ -22,9 +22,6 @@ function Navbar() {
         {user && (user.role === 'ADMIN' || user.role === 'TEACHER') && (
           <Link to="/students" className={linkClass}>Data Siswa</Link>
         )}
-        {user && user.role === 'TEACHER' && (
-          <Link to="/my-classes" className={linkClass}>Kelas Saya</Link>
-        )}
         {user && user.role === 'ADMIN' && (
           <Link to="/teachers" className={linkClass}>Data Guru</Link>
         )}
@@ -37,6 +34,9 @@ function Navbar() {
         {user && user.role === 'ADMIN' && (
           <Link to="/schedules" className={linkClass}>Jadwal</Link>
         )}
+        {user && user.role === 'TEACHER' && (
+          <Link to="/my-classes" className={linkClass}>Kelas Saya</Link>
+        )}
         {user && user.role === 'STUDENT' && (
           <Link to="/my-data" className={linkClass}>Data Saya</Link>
         )}
@@ -47,13 +47,23 @@ function Navbar() {
           <Link to="/announcements" className={linkClass}>Pengumuman</Link>
         )}
       </div>
-      
 
-      <div className="flex items-center gap-4">
+      <div className="flex items-center gap-3">
         {user ? (
           <>
-            <Link to="/change-password" className="text-slate-300 text-sm hover:text-white">
-              {user.name} <span className="text-slate-400">({user.role})</span>
+            <Link to="/profile" className="flex items-center gap-2 hover:opacity-80 transition-opacity">
+              <div className="w-8 h-8 rounded-full bg-slate-600 overflow-hidden flex items-center justify-center border border-slate-500">
+                {user.photo ? (
+                  <img src={user.photo} alt="Foto profil" className="w-full h-full object-cover" />
+                ) : (
+                  <span className="text-white text-xs font-bold">
+                    {user.name.charAt(0).toUpperCase()}
+                  </span>
+                )}
+              </div>
+              <span className="text-slate-300 text-sm">
+                {user.name} <span className="text-slate-400">({user.role})</span>
+              </span>
             </Link>
             <button
               onClick={handleLogout}

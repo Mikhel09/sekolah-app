@@ -13,6 +13,7 @@ import Subjects from './pages/Subjects';
 import Schedules from './pages/Schedules';
 import MySchedule from './pages/MySchedule';
 import Announcements from './pages/Announcements';
+import Profile from './pages/Profile';
 
 function App() {
   return (
@@ -113,6 +114,14 @@ function App() {
             element={
               <ProtectedRoute>
                 <Announcements />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/profile"
+            element={
+              <ProtectedRoute>
+                <Profile />
               </ProtectedRoute>
             }
           />

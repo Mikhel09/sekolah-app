@@ -20,6 +20,7 @@ model User {
   email     String   @unique
   password  String
   role      Role
+  photo     String?  @db.Text
   createdAt DateTime @default(now())
 
   teacher Teacher?
