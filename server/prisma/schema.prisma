@@ -138,7 +138,9 @@ model Exam {
   class     Class    @relation(fields: [classId], references: [id])
   teacherId Int
   teacher   Teacher  @relation(fields: [teacherId], references: [id])
-  duration  Int      // durasi ujian dalam menit
+  duration  Int
+  startTime DateTime?
+  endTime   DateTime?
   createdAt DateTime @default(now())
 
   examQuestions ExamQuestion[]

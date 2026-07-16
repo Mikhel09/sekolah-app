@@ -12,6 +12,8 @@ function Exams() {
   const [subjectId, setSubjectId] = useState('');
   const [classId, setClassId] = useState('');
   const [duration, setDuration] = useState(30);
+  const [startTime, setStartTime] = useState('');
+  const [endTime, setEndTime] = useState('');
   const [selectedQuestionIds, setSelectedQuestionIds] = useState([]);
 
   const loadExams = () => {
@@ -39,22 +41,24 @@ function Exams() {
     );
   };
 
-  const handleSubmit = async (e) => {
+    const handleSubmit = async (e) => {
     e.preventDefault();
     if (selectedQuestionIds.length === 0) {
       alert('Pilih minimal 1 soal untuk ujian ini');
       return;
     }
     await api.post('/exams', {
-      title, subjectId, classId, duration, questionIds: selectedQuestionIds,
+      title, subjectId, classId, duration, questionIds: selectedQuestionIds, startTime, endTime,
     });
     setTitle('');
     setSubjectId('');
     setClassId('');
     setDuration(30);
     setSelectedQuestionIds([]);
+    setStartTime('');
+    setEndTime('');
     loadExams();
-  };
+    };
 
   const handleDelete = async (id) => {
     const yakin = window.confirm('Yakin ingin menghapus ujian ini? Semua hasil siswa juga akan terhapus.');
@@ -99,6 +103,20 @@ function Exams() {
             placeholder="Durasi (menit)"
             min="1"
             required
+          />
+          <input
+            type="datetime-local"
+            value={startTime}
+            onChange={(e) => setStartTime(e.target.value)}
+            className={inputClass}
+            title="Waktu mulai (opsional)"
+          />
+          <input
+            type="datetime-local"
+            value={endTime}
+            onChange={(e) => setEndTime(e.target.value)}
+            className={inputClass}
+            title="Waktu berakhir (opsional)"
           />
         </div>
 

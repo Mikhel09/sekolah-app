@@ -238,7 +238,15 @@ app.get('/api/exams/:id/take', verifyToken, allowRoles('STUDENT'), async (req, r
       return res.status(404).json({ error: 'Ujian tidak ditemukan' });
     }
 
-    // PENTING: jangan kirim correctAnswer ke siswa!
+    // BARU: Cek apakah sekarang masih dalam rentang waktu ujian
+    const sekarang = new Date();
+    if (exam.startTime && sekarang < exam.startTime) {
+      return res.status(403).json({ error: 'Ujian belum dimulai' });
+    }
+    if (exam.endTime && sekarang > exam.endTime) {
+      return res.status(403).json({ error: 'Waktu ujian sudah berakhir' });
+    }
+
     const soal = exam.examQuestions.map((eq) => ({
       id: eq.question.id,
       questionText: eq.question.questionText,
@@ -260,6 +268,36 @@ app.get('/api/exams/:id/take', verifyToken, allowRoles('STUDENT'), async (req, r
   }
 });
 
+app.post('/api/exams', verifyToken, allowRoles('ADMIN', 'TEACHER'), async (req, res) => {
+  const { title, subjectId, classId, duration, questionIds, startTime, endTime } = req.body;
+
+  try {
+    const teacher = await prisma.teacher.findUnique({ where: { userId: req.user.userId } });
+    if (!teacher) {
+      return res.status(400).json({ error: 'Hanya guru yang bisa membuat ujian' });
+    }
+
+    const exam = await prisma.exam.create({
+      data: {
+        title,
+        subjectId: Number(subjectId),
+        classId: Number(classId),
+        teacherId: teacher.id,
+        duration: Number(duration),
+        startTime: startTime ? new Date(startTime) : null,
+        endTime: endTime ? new Date(endTime) : null,
+        examQuestions: {
+          create: questionIds.map((qId) => ({ questionId: Number(qId) })),
+        },
+      },
+    });
+
+    res.json(exam);
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
 // Submit jawaban ujian, nilai otomatis dihitung
 app.post('/api/exams/:id/submit', verifyToken, allowRoles('STUDENT'), async (req, res) => {
   const examId = Number(req.params.id);
@@ -269,6 +307,12 @@ app.post('/api/exams/:id/submit', verifyToken, allowRoles('STUDENT'), async (req
     const student = await prisma.student.findUnique({ where: { userId: req.user.userId } });
     if (!student) {
       return res.status(404).json({ error: 'Data siswa tidak ditemukan' });
+    }
+
+    const examCheck = await prisma.exam.findUnique({ where: { id: examId } });
+    const sekarang = new Date();
+    if (examCheck.endTime && sekarang > examCheck.endTime) {
+      return res.status(403).json({ error: 'Waktu ujian sudah berakhir, jawaban tidak bisa dikirim' });
     }
 
     // Cek apakah siswa ini sudah pernah submit ujian ini
@@ -1031,6 +1075,48 @@ app.post('/api/questions', verifyToken, allowRoles('ADMIN', 'TEACHER'), async (r
       },
     });
     res.json(question);
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+app.post('/api/questions/import', verifyToken, allowRoles('ADMIN', 'TEACHER'), upload.single('file'), async (req, res) => {
+  try {
+    const workbook = XLSX.read(req.file.buffer, { type: 'buffer' });
+    const sheet = workbook.Sheets[workbook.SheetNames[0]];
+    const rows = XLSX.utils.sheet_to_json(sheet);
+
+    const hasil = { berhasil: 0, gagal: [] };
+
+    for (const row of rows) {
+      try {
+        const { subjectName, questionText, optionA, optionB, optionC, optionD, correctAnswer } = row;
+
+        const subject = await prisma.subject.findFirst({ where: { name: String(subjectName) } });
+        if (!subject) {
+          hasil.gagal.push({ row, alasan: `Mapel "${subjectName}" tidak ditemukan` });
+          continue;
+        }
+
+        await prisma.question.create({
+          data: {
+            subjectId: subject.id,
+            questionText: String(questionText),
+            optionA: String(optionA),
+            optionB: String(optionB),
+            optionC: String(optionC),
+            optionD: String(optionD),
+            correctAnswer: String(correctAnswer).toUpperCase(),
+          },
+        });
+
+        hasil.berhasil++;
+      } catch (err) {
+        hasil.gagal.push({ row, alasan: err.message });
+      }
+    }
+
+    res.json(hasil);
   } catch (err) {
     res.status(400).json({ error: err.message });
   }

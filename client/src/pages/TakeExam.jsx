@@ -1,7 +1,15 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import api from '../services/api';
-
+// Fungsi untuk mengacak urutan array (Fisher-Yates shuffle)
+function shuffleArray(array) {
+  const result = [...array];
+  for (let i = result.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [result[i], result[j]] = [result[j], result[i]];
+  }
+  return result;
+}
 function TakeExam() {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -12,10 +20,27 @@ function TakeExam() {
   const [hasilAkhir, setHasilAkhir] = useState(null);
 
   useEffect(() => {
-    api.get(`/exams/${id}/take`).then((res) => {
-      setExam(res.data);
-      setTimeLeft(res.data.duration * 60); // ubah menit jadi detik
-    });
+    api.get(`/exams/${id}/take`)
+      .then((res) => {
+        // Acak urutan soal
+        const soalDiacak = shuffleArray(res.data.soal).map((q) => ({
+          ...q,
+          // Acak urutan pilihan jawaban, tapi tetap simpan huruf aslinya (A/B/C/D)
+          opsiDiacak: shuffleArray([
+            { letter: 'A', text: q.optionA },
+            { letter: 'B', text: q.optionB },
+            { letter: 'C', text: q.optionC },
+            { letter: 'D', text: q.optionD },
+          ]),
+        }));
+
+        setExam({ ...res.data, soal: soalDiacak });
+        setTimeLeft(res.data.duration * 60);
+      })
+      .catch((err) => {
+        alert(err.response?.data?.error || 'Gagal memuat ujian');
+        navigate('/my-exams');
+      });
   }, [id]);
 
   const handleSubmit = useCallback(async () => {
@@ -93,11 +118,11 @@ function TakeExam() {
               {index + 1}. {q.questionText}
             </p>
             <div className="flex flex-col gap-2">
-              {['A', 'B', 'C', 'D'].map((opt) => (
+              {q.opsiDiacak.map((opsi) => (
                 <label
-                  key={opt}
+                  key={opsi.letter}
                   className={`flex items-center gap-2 text-sm px-3 py-2 rounded-md border cursor-pointer ${
-                    answers[q.id] === opt
+                    answers[q.id] === opsi.letter
                       ? 'bg-blue-50 border-blue-400'
                       : 'border-slate-200 hover:bg-slate-50'
                   }`}
@@ -105,10 +130,10 @@ function TakeExam() {
                   <input
                     type="radio"
                     name={`question-${q.id}`}
-                    checked={answers[q.id] === opt}
-                    onChange={() => handleAnswer(q.id, opt)}
+                    checked={answers[q.id] === opsi.letter}
+                    onChange={() => handleAnswer(q.id, opsi.letter)}
                   />
-                  <span className="font-medium">{opt}.</span> {q[`option${opt}`]}
+                  {opsi.text}
                 </label>
               ))}
             </div>
