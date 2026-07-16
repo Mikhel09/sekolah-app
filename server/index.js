@@ -500,6 +500,45 @@ app.delete('/api/announcements/:id', verifyToken, allowRoles('ADMIN'), async (re
   }
 });
 
+// Ambil data ringkasan untuk dashboard — hanya ADMIN
+app.get('/api/dashboard/stats', verifyToken, allowRoles('ADMIN'), async (req, res) => {
+  try {
+    // Hitung total masing-masing
+    const totalStudents = await prisma.student.count();
+    const totalTeachers = await prisma.teacher.count();
+    const totalClasses = await prisma.class.count();
+
+    // Jumlah siswa per kelas (untuk grafik batang)
+    const classes = await prisma.class.findMany({
+      include: { students: true },
+    });
+    const studentsPerClass = classes.map((c) => ({
+      name: c.name,
+      jumlah: c.students.length,
+    }));
+
+    // Distribusi status absensi (untuk grafik lingkaran)
+    const attendanceGrouped = await prisma.attendance.groupBy({
+      by: ['status'],
+      _count: { status: true },
+    });
+    const attendanceDistribution = attendanceGrouped.map((a) => ({
+      name: a.status,
+      value: a._count.status,
+    }));
+
+    res.json({
+      totalStudents,
+      totalTeachers,
+      totalClasses,
+      studentsPerClass,
+      attendanceDistribution,
+    });
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
 // ==========================================
 // JALANKAN SERVER
 // ==========================================
