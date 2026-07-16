@@ -187,6 +187,131 @@ app.put('/api/students/:id', verifyToken, allowRoles('ADMIN'), async (req, res) 
   }
 });
 
+// ==== ENDPOINT UJIAN (SISWA) ====
+
+// Ambil daftar ujian yang tersedia untuk kelas siswa yang login
+app.get('/api/me/exams', verifyToken, allowRoles('STUDENT'), async (req, res) => {
+  try {
+    const student = await prisma.student.findUnique({ where: { userId: req.user.userId } });
+    if (!student) {
+      return res.status(404).json({ error: 'Data siswa tidak ditemukan' });
+    }
+
+    const exams = await prisma.exam.findMany({
+      where: { classId: student.classId },
+      include: {
+        subject: true,
+        results: { where: { studentId: student.id } }, // cek apakah siswa ini sudah pernah submit
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    // Tandai mana yang sudah dikerjakan
+    const examsWithStatus = exams.map((e) => ({
+      id: e.id,
+      title: e.title,
+      subject: e.subject,
+      duration: e.duration,
+      sudahDikerjakan: e.results.length > 0,
+      skor: e.results.length > 0 ? e.results[0].score : null,
+    }));
+
+    res.json(examsWithStatus);
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+// Ambil soal-soal untuk mengerjakan ujian tertentu (TANPA kunci jawaban)
+app.get('/api/exams/:id/take', verifyToken, allowRoles('STUDENT'), async (req, res) => {
+  const id = Number(req.params.id);
+  try {
+    const exam = await prisma.exam.findUnique({
+      where: { id },
+      include: {
+        subject: true,
+        examQuestions: { include: { question: true } },
+      },
+    });
+
+    if (!exam) {
+      return res.status(404).json({ error: 'Ujian tidak ditemukan' });
+    }
+
+    // PENTING: jangan kirim correctAnswer ke siswa!
+    const soal = exam.examQuestions.map((eq) => ({
+      id: eq.question.id,
+      questionText: eq.question.questionText,
+      optionA: eq.question.optionA,
+      optionB: eq.question.optionB,
+      optionC: eq.question.optionC,
+      optionD: eq.question.optionD,
+    }));
+
+    res.json({
+      id: exam.id,
+      title: exam.title,
+      subject: exam.subject,
+      duration: exam.duration,
+      soal,
+    });
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+// Submit jawaban ujian, nilai otomatis dihitung
+app.post('/api/exams/:id/submit', verifyToken, allowRoles('STUDENT'), async (req, res) => {
+  const examId = Number(req.params.id);
+  const { answers } = req.body; // format: { "1": "A", "2": "C", "5": "B" }
+
+  try {
+    const student = await prisma.student.findUnique({ where: { userId: req.user.userId } });
+    if (!student) {
+      return res.status(404).json({ error: 'Data siswa tidak ditemukan' });
+    }
+
+    // Cek apakah siswa ini sudah pernah submit ujian ini
+    const sudahAda = await prisma.examResult.findUnique({
+      where: { examId_studentId: { examId, studentId: student.id } },
+    });
+    if (sudahAda) {
+      return res.status(400).json({ error: 'Kamu sudah mengerjakan ujian ini sebelumnya' });
+    }
+
+    // Ambil soal-soal ujian ini beserta kunci jawabannya (di server, aman)
+    const examQuestions = await prisma.examQuestion.findMany({
+      where: { examId },
+      include: { question: true },
+    });
+
+    // Hitung skor: jumlah benar / total soal * 100
+    let jumlahBenar = 0;
+    examQuestions.forEach((eq) => {
+      const jawabanSiswa = answers[eq.question.id];
+      if (jawabanSiswa === eq.question.correctAnswer) {
+        jumlahBenar++;
+      }
+    });
+    const score = examQuestions.length > 0
+      ? Math.round((jumlahBenar / examQuestions.length) * 100)
+      : 0;
+
+    const result = await prisma.examResult.create({
+      data: {
+        examId,
+        studentId: student.id,
+        score,
+        answers: JSON.stringify(answers),
+      },
+    });
+
+    res.json({ score, jumlahBenar, totalSoal: examQuestions.length });
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
 // Hapus siswa — hanya ADMIN
 app.delete('/api/students/:id', verifyToken, allowRoles('ADMIN'), async (req, res) => {
   const id = Number(req.params.id);
@@ -706,6 +831,85 @@ app.post('/api/schedules/import', verifyToken, allowRoles('ADMIN'), upload.singl
   }
 });
 
+// ==== ENDPOINT UJIAN (GURU/ADMIN) ====
+
+// Ambil semua ujian
+app.get('/api/exams', verifyToken, allowRoles('ADMIN', 'TEACHER'), async (req, res) => {
+  try {
+    const exams = await prisma.exam.findMany({
+      include: {
+        subject: true,
+        class: true,
+        teacher: { include: { user: true } },
+        examQuestions: true,
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+    res.json(exams);
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+// Buat ujian baru (sekaligus pilih soal-soalnya)
+app.post('/api/exams', verifyToken, allowRoles('ADMIN', 'TEACHER'), async (req, res) => {
+  const { title, subjectId, classId, duration, questionIds } = req.body;
+  // questionIds = array angka, contoh: [1, 2, 5, 8]
+
+  try {
+    // Cari data guru dari user yang sedang login
+    const teacher = await prisma.teacher.findUnique({ where: { userId: req.user.userId } });
+    if (!teacher) {
+      return res.status(400).json({ error: 'Hanya guru yang bisa membuat ujian' });
+    }
+
+    const exam = await prisma.exam.create({
+      data: {
+        title,
+        subjectId: Number(subjectId),
+        classId: Number(classId),
+        teacherId: teacher.id,
+        duration: Number(duration),
+        examQuestions: {
+          create: questionIds.map((qId) => ({ questionId: Number(qId) })),
+        },
+      },
+    });
+
+    res.json(exam);
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+// Hapus ujian
+app.delete('/api/exams/:id', verifyToken, allowRoles('ADMIN', 'TEACHER'), async (req, res) => {
+  const id = Number(req.params.id);
+  try {
+    await prisma.examResult.deleteMany({ where: { examId: id } });
+    await prisma.examQuestion.deleteMany({ where: { examId: id } });
+    await prisma.exam.delete({ where: { id } });
+    res.json({ message: 'Ujian dihapus' });
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+// Lihat hasil semua siswa untuk satu ujian
+app.get('/api/exams/:id/results', verifyToken, allowRoles('ADMIN', 'TEACHER'), async (req, res) => {
+  const id = Number(req.params.id);
+  try {
+    const results = await prisma.examResult.findMany({
+      where: { examId: id },
+      include: { student: { include: { user: true } } },
+      orderBy: { score: 'desc' },
+    });
+    res.json(results);
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
 // ==========================================
 // ENDPOINT ABSENSI
 // ==========================================
@@ -792,6 +996,56 @@ app.get('/api/dashboard/stats', verifyToken, allowRoles('ADMIN'), async (req, re
         rataRata: Math.round((g._avg.score || 0) * 10) / 10, // dibulatkan 1 angka desimal
       };
     });
+
+    // ==== ENDPOINT BANK SOAL ====
+
+// Ambil soal, bisa difilter berdasarkan mapel
+app.get('/api/questions', verifyToken, allowRoles('ADMIN', 'TEACHER'), async (req, res) => {
+  const { subjectId } = req.query;
+  try {
+    const where = subjectId ? { subjectId: Number(subjectId) } : {};
+    const questions = await prisma.question.findMany({
+      where,
+      include: { subject: true },
+      orderBy: { createdAt: 'desc' },
+    });
+    res.json(questions);
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+// Tambah soal baru
+app.post('/api/questions', verifyToken, allowRoles('ADMIN', 'TEACHER'), async (req, res) => {
+  const { subjectId, questionText, optionA, optionB, optionC, optionD, correctAnswer } = req.body;
+  try {
+    const question = await prisma.question.create({
+      data: {
+        subjectId: Number(subjectId),
+        questionText,
+        optionA,
+        optionB,
+        optionC,
+        optionD,
+        correctAnswer,
+      },
+    });
+    res.json(question);
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+// Hapus soal
+app.delete('/api/questions/:id', verifyToken, allowRoles('ADMIN', 'TEACHER'), async (req, res) => {
+  const id = Number(req.params.id);
+  try {
+    await prisma.question.delete({ where: { id } });
+    res.json({ message: 'Soal dihapus' });
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
 
     res.json({
       totalStudents,
