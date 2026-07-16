@@ -11,6 +11,8 @@ import ChangePassword from './pages/ChangePassword';
 import MyClasses from './pages/MyClasses';
 import Subjects from './pages/Subjects';
 import Schedules from './pages/Schedules';
+import MySchedule from './pages/MySchedule';
+import Announcements from './pages/Announcements';
 
 function App() {
   return (
@@ -94,6 +96,23 @@ function App() {
             element={
               <ProtectedRoute allowedRoles={['ADMIN']}>
                 <Schedules />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/my-schedule"
+            element={
+              <ProtectedRoute allowedRoles={['STUDENT']}>
+                <MySchedule />
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/announcements"
+            element={
+              <ProtectedRoute>
+                <Announcements />
               </ProtectedRoute>
             }
           />

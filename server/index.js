@@ -194,6 +194,32 @@ app.get('/api/me/student', verifyToken, allowRoles('STUDENT'), async (req, res) 
   }
 });
 
+// Ambil jadwal pelajaran milik kelas siswa yang sedang login
+app.get('/api/me/student/schedule', verifyToken, allowRoles('STUDENT'), async (req, res) => {
+  try {
+    const student = await prisma.student.findUnique({
+      where: { userId: req.user.userId },
+    });
+
+    if (!student) {
+      return res.status(404).json({ error: 'Data siswa tidak ditemukan' });
+    }
+
+    const schedules = await prisma.schedule.findMany({
+      where: { classId: student.classId },
+      include: {
+        subject: true,
+        teacher: { include: { user: true } },
+      },
+      orderBy: { day: 'asc' },
+    });
+
+    res.json(schedules);
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
 // Ambil daftar kelas yang diajar oleh guru yang sedang login
 app.get('/api/me/teacher/classes', verifyToken, allowRoles('TEACHER'), async (req, res) => {
   try {
@@ -450,9 +476,28 @@ app.post('/api/attendances', verifyToken, allowRoles('ADMIN', 'TEACHER'), async 
 // ==========================================
 // ENDPOINT PENGUMUMAN
 // ==========================================
-app.get('/api/announcements', verifyToken, async (req, res) => {
-  const data = await prisma.announcement.findMany();
-  res.json(data);
+// Tambah pengumuman baru — hanya ADMIN
+app.post('/api/announcements', verifyToken, allowRoles('ADMIN'), async (req, res) => {
+  const { title, content } = req.body;
+  try {
+    const announcement = await prisma.announcement.create({
+      data: { title, content },
+    });
+    res.json(announcement);
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+// Hapus pengumuman — hanya ADMIN
+app.delete('/api/announcements/:id', verifyToken, allowRoles('ADMIN'), async (req, res) => {
+  const id = Number(req.params.id);
+  try {
+    await prisma.announcement.delete({ where: { id } });
+    res.json({ message: 'Pengumuman dihapus' });
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
 });
 
 // ==========================================

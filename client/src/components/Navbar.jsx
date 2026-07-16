@@ -40,7 +40,14 @@ function Navbar() {
         {user && user.role === 'STUDENT' && (
           <Link to="/my-data" className={linkClass}>Data Saya</Link>
         )}
+        {user && user.role === 'STUDENT' && (
+          <Link to="/my-schedule" className={linkClass}>Jadwal Saya</Link>
+        )}
+        {user && (
+          <Link to="/announcements" className={linkClass}>Pengumuman</Link>
+        )}
       </div>
+      
 
       <div className="flex items-center gap-4">
         {user ? (
