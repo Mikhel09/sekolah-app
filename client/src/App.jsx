@@ -260,7 +260,7 @@ function App() {
         </Routes>
 
       
-      </Layout>
+      </div>
     </BrowserRouter>
   );
 }
