@@ -32,15 +32,28 @@ model User {
 }
 
 model Teacher {
-  id     Int    @id @default(autoincrement())
-  userId Int    @unique
-  user   User   @relation(fields: [userId], references: [id])
-  nip    String @unique
+  id          Int    @id @default(autoincrement())
+  userId      Int    @unique
+  user        User   @relation(fields: [userId], references: [id])
+  nip         String @unique
+  teacherCode String? @unique
+  phone       String?
+  importBatchId String?
 
-  homeroomOf Class[]    @relation("HomeroomTeacher")
+  homeroomOf Class[]          @relation("HomeroomTeacher")
   schedules  Schedule[]
   exams      Exam[]
-  importBatchId String?
+  subjects   TeacherSubject[]
+}
+
+model TeacherSubject {
+  id        Int     @id @default(autoincrement())
+  teacherId Int
+  teacher   Teacher @relation(fields: [teacherId], references: [id])
+  subjectId Int
+  subject   Subject @relation(fields: [subjectId], references: [id])
+
+  @@unique([teacherId, subjectId])
 }
 
 model Student {
@@ -61,24 +74,28 @@ model Student {
 model Class {
   id                Int      @id @default(autoincrement())
   name              String
+  gradeLevel        String?
   homeroomTeacherId Int?
   homeroomTeacher   Teacher? @relation("HomeroomTeacher", fields: [homeroomTeacherId], references: [id])
+  importBatchId     String?
 
   students  Student[]
   schedules Schedule[]
   exams     Exam[]
-  importBatchId String?
 }
 
 model Subject {
-  id   Int    @id @default(autoincrement())
-  name String
+  id           Int    @id @default(autoincrement())
+  name         String
+  subjectCode  String? @unique
+  subjectGroup String?
+  importBatchId String?
 
-  schedules Schedule[]
-  grades    Grade[]
-  questions Question[] 
-  exams     Exam[]
-  importBatchId String?   
+  schedules       Schedule[]
+  grades          Grade[]
+  questions       Question[]
+  exams           Exam[]
+  teacherSubjects TeacherSubject[]
 }
 
 model Schedule {

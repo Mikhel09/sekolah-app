@@ -427,13 +427,16 @@ app.post('/api/attendances', verifyToken, allowRoles('ADMIN', 'TEACHER'), async 
 
 app.get('/api/teachers', verifyToken, async (req, res) => {
   const teachers = await prisma.teacher.findMany({
-    include: { user: true },
+    include: {
+      user: true,
+      subjects: { include: { subject: true } },
+    },
   });
   res.json(teachers);
 });
 
 app.post('/api/teachers', verifyToken, allowRoles('ADMIN'), async (req, res) => {
-  const { name, email, nip } = req.body;
+  const { name, email, nip, teacherCode, phone } = req.body;
   try {
     const password = await bcrypt.hash('ganti123', 10);
     const teacher = await prisma.user.create({
@@ -442,7 +445,13 @@ app.post('/api/teachers', verifyToken, allowRoles('ADMIN'), async (req, res) => 
         email,
         password,
         role: 'TEACHER',
-        teacher: { create: { nip } },
+        teacher: {
+          create: {
+            nip,
+            teacherCode: teacherCode || null,
+            phone: phone || null,
+          },
+        },
       },
       include: { teacher: true },
     });
@@ -489,16 +498,45 @@ app.post('/api/teachers/import', verifyToken, allowRoles('ADMIN'), upload.single
 
     for (const row of rows) {
       try {
-        const { name, email, nip } = row;
-        const password = await bcrypt.hash('ganti123', 10);
+        const { teacherCode, teacherName, email, phone } = row;
 
+        if (!teacherName || !email) {
+          hasil.gagal.push({ row, alasan: 'teacherName dan email wajib diisi' });
+          continue;
+        }
+
+        // Kumpulkan SEMUA kolom yang namanya diawali "subject" (subject1, subject2, subject3, dst)
+        // supaya jumlah mapel per guru tidak dibatasi
+        const subjectNames = Object.keys(row)
+          .filter((key) => key.toLowerCase().startsWith('subject') && row[key])
+          .map((key) => String(row[key]).trim());
+
+        const subjectLinks = [];
+        for (const subjName of subjectNames) {
+          const subj = await prisma.subject.findFirst({ where: { name: subjName } });
+          if (subj) {
+            subjectLinks.push({ subjectId: subj.id });
+          } else {
+            hasil.gagal.push({ row: { teacherName, subjek: subjName }, alasan: `Mapel "${subjName}" tidak ditemukan, dilewati (guru tetap dibuat)` });
+          }
+        }
+
+        const password = await bcrypt.hash('ganti123', 10);
         await prisma.user.create({
           data: {
-            name: String(name),
+            name: String(teacherName),
             email: String(email),
             password,
             role: 'TEACHER',
-            teacher: { create: { nip: String(nip), importBatchId: batchId } },
+            teacher: {
+              create: {
+                nip: teacherCode ? `NIP-${teacherCode}` : `AUTO-${Date.now()}${Math.floor(Math.random() * 1000)}`,
+                teacherCode: teacherCode ? String(teacherCode) : null,
+                phone: phone ? String(phone) : null,
+                importBatchId: batchId,
+                subjects: subjectLinks.length > 0 ? { create: subjectLinks } : undefined,
+              },
+            },
           },
         });
 
@@ -611,7 +649,40 @@ app.post('/api/classes/import', verifyToken, allowRoles('ADMIN'), upload.single(
 
     for (const row of rows) {
       try {
-        await prisma.class.create({ data: { name: String(row.name), importBatchId: batchId } });
+        const { className, gradeLevel, homeroomTeacher } = row;
+
+        if (!className) {
+          hasil.gagal.push({ row, alasan: 'className wajib diisi' });
+          continue;
+        }
+
+        let homeroomTeacherId = null;
+        if (homeroomTeacher) {
+          const hrValue = String(homeroomTeacher).trim();
+          // Boleh isi email ATAU nama guru di kolom ini
+          let teacherUser;
+          if (hrValue.includes('@')) {
+            teacherUser = await prisma.user.findUnique({ where: { email: hrValue }, include: { teacher: true } });
+          } else {
+            teacherUser = await prisma.user.findFirst({ where: { name: hrValue, role: 'TEACHER' }, include: { teacher: true } });
+          }
+
+          if (teacherUser && teacherUser.teacher) {
+            homeroomTeacherId = teacherUser.teacher.id;
+          } else {
+            hasil.gagal.push({ row: { className, homeroomTeacher: hrValue }, alasan: `Wali kelas "${hrValue}" tidak ditemukan — kelas tetap dibuat tanpa wali kelas` });
+          }
+        }
+
+        await prisma.class.create({
+          data: {
+            name: String(className),
+            gradeLevel: gradeLevel ? String(gradeLevel) : null,
+            homeroomTeacherId,
+            importBatchId: batchId,
+          },
+        });
+
         hasil.berhasil++;
       } catch (err) {
         hasil.gagal.push({ row, alasan: err.message });
@@ -670,7 +741,22 @@ app.post('/api/subjects/import', verifyToken, allowRoles('ADMIN'), upload.single
 
     for (const row of rows) {
       try {
-        await prisma.subject.create({ data: { name: String(row.name), importBatchId: batchId } });
+        const { subjectCode, subjectName, subjectGroup } = row;
+
+        if (!subjectName) {
+          hasil.gagal.push({ row, alasan: 'subjectName wajib diisi' });
+          continue;
+        }
+
+        await prisma.subject.create({
+          data: {
+            name: String(subjectName),
+            subjectCode: subjectCode ? String(subjectCode) : null,
+            subjectGroup: subjectGroup ? String(subjectGroup) : null,
+            importBatchId: batchId,
+          },
+        });
+
         hasil.berhasil++;
       } catch (err) {
         hasil.gagal.push({ row, alasan: err.message });

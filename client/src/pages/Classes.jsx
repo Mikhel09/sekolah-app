@@ -96,7 +96,7 @@ function Classes() {
       <ImportExcel
         endpoint="/classes/import"
         onSuccess={loadClasses}
-        contohKolom="name"
+        contohKolom="className, gradeLevel, homeroomTeacher (nama atau email guru)"
       />
 
       <form onSubmit={handleSubmit} className="bg-white border border-slate-200 rounded-lg p-4 mb-6 flex flex-wrap gap-3 items-center shadow-sm">

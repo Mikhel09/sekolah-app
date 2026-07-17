@@ -97,7 +97,7 @@ function Teachers() {
       <ImportExcel
         endpoint="/teachers/import"
         onSuccess={loadTeachers}
-        contohKolom="name, email, nip"
+        contohKolom="teacherCode, teacherName, email, phone, subject1, subject2, ..."
       />
 
       <form onSubmit={handleSubmit} className="bg-white border border-slate-200 rounded-lg p-4 mb-6 flex flex-wrap gap-3 items-center shadow-sm">

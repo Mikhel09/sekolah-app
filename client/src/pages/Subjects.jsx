@@ -67,7 +67,7 @@ function Subjects() {
       <ImportExcel
         endpoint="/subjects/import"
         onSuccess={loadSubjects}
-        contohKolom="name"
+        contohKolom="subjectCode, subjectName, subjectGroup"
       />
 
       <form onSubmit={handleSubmit} className="bg-white border border-slate-200 rounded-lg p-4 mb-6 flex gap-3 items-center shadow-sm">
