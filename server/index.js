@@ -848,6 +848,83 @@ app.delete('/api/questions/:id', verifyToken, allowRoles('ADMIN', 'TEACHER'), as
   }
 });
 
+// Analisis soal: seberapa sering dijawab benar/salah oleh siswa
+app.get('/api/questions/analytics', verifyToken, allowRoles('ADMIN', 'TEACHER'), async (req, res) => {
+  const { subjectId } = req.query;
+
+  try {
+    const where = subjectId ? { subjectId: Number(subjectId) } : {};
+    const questions = await prisma.question.findMany({
+      where,
+      include: { subject: true },
+    });
+
+    const hasil = [];
+
+    for (const q of questions) {
+      // Cari semua ujian yang memakai soal ini
+      const examQuestions = await prisma.examQuestion.findMany({
+        where: { questionId: q.id },
+        include: { exam: { include: { results: true } } },
+      });
+
+      // Kumpulkan semua hasil ujian siswa dari ujian-ujian yang memakai soal ini
+      const semuaHasil = examQuestions.flatMap((eq) => eq.exam.results);
+
+      if (q.type === 'MULTIPLE_CHOICE') {
+        let totalDijawab = 0;
+        let jumlahBenar = 0;
+
+        semuaHasil.forEach((result) => {
+          const jawaban = JSON.parse(result.answers);
+          if (jawaban[q.id] !== undefined) {
+            totalDijawab++;
+            if (jawaban[q.id] === q.correctAnswer) {
+              jumlahBenar++;
+            }
+          }
+        });
+
+        if (totalDijawab > 0) {
+          hasil.push({
+            id: q.id,
+            questionText: q.questionText,
+            type: q.type,
+            subjectName: q.subject.name,
+            totalDijawab,
+            jumlahBenar,
+            jumlahSalah: totalDijawab - jumlahBenar,
+            persentaseBenar: Math.round((jumlahBenar / totalDijawab) * 100),
+          });
+        }
+      } else {
+        // Soal essay: hitung rata-rata nilai yang sudah diberikan guru
+        const essayAnswers = await prisma.essayAnswer.findMany({
+          where: { questionId: q.id, score: { not: null } },
+        });
+
+        if (essayAnswers.length > 0) {
+          const rataRata = Math.round(
+            essayAnswers.reduce((sum, e) => sum + e.score, 0) / essayAnswers.length
+          );
+          hasil.push({
+            id: q.id,
+            questionText: q.questionText,
+            type: q.type,
+            subjectName: q.subject.name,
+            totalDijawab: essayAnswers.length,
+            rataRataNilai: rataRata,
+          });
+        }
+      }
+    }
+
+    res.json(hasil);
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
 // ==========================================
 // ENDPOINT UJIAN (GURU/ADMIN)
 // ==========================================

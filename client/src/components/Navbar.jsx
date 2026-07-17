@@ -48,6 +48,9 @@ function Navbar() {
           <Link to="/exams" className={linkClass}>Ujian</Link>
         )}
         {user && (user.role === 'ADMIN' || user.role === 'TEACHER') && (
+          <Link to="/question-analytics" className={linkClass}>Analisis Soal</Link>
+        )}
+        {user && (user.role === 'ADMIN' || user.role === 'TEACHER') && (
           <Link to="/reports/attendance" className={linkClass}>Laporan Absensi</Link>
         )}
         {user && user.role === 'ADMIN' && (

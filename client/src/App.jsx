@@ -27,6 +27,7 @@ import Parents from './pages/Parents';
 import MyChildren from './pages/MyChildren';
 import ChildDetail from './pages/ChildDetail';
 import GradeEssay from './pages/GradeEssay';
+import QuestionAnalytics from './pages/QuestionAnalytics';
 
 function App() {
   return (
@@ -246,6 +247,14 @@ function App() {
             element={
               <ProtectedRoute allowedRoles={['ADMIN', 'TEACHER']}>
                 <GradeEssay />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/question-analytics"
+            element={
+              <ProtectedRoute allowedRoles={['ADMIN', 'TEACHER']}>
+                <QuestionAnalytics />
               </ProtectedRoute>
             }
           />
