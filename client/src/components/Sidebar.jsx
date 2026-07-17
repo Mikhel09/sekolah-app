@@ -3,6 +3,7 @@ import {
   LayoutDashboard, Users, GraduationCap, School, BookOpen, CalendarDays,
   UserRoundCog, FileQuestion, ClipboardList, BarChart3, CalendarCheck,
   TrendingUp, Megaphone, ClipboardCheck, Baby, ChevronsLeft, ChevronsRight,
+  History as HistoryIcon,
 } from 'lucide-react';
 
 // Konfigurasi menu: dikelompokkan per bagian, tiap item punya daftar role yang boleh lihat
@@ -38,7 +39,7 @@ const MENU_SECTIONS = [
     items: [
       { to: '/reports/attendance', label: 'Laporan Absensi', icon: CalendarCheck, roles: ['ADMIN', 'TEACHER'] },
       { to: '/reports/class-comparison', label: 'Perbandingan Kelas', icon: TrendingUp, roles: ['ADMIN'] },
-      { to: '/import-history', label: 'Riwayat Import', icon: History, roles: ['ADMIN', 'TEACHER'] },   // BARU
+      { to: '/import-history', label: 'Riwayat Import', icon: HistoryIcon, roles: ['ADMIN', 'TEACHER'] },
     ],
   },
   {
