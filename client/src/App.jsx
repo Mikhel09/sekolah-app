@@ -1,5 +1,5 @@
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
-import Navbar from './components/Navbar';
+import Layout from './components/Layout';
 import ProtectedRoute from './components/ProtectedRoute';
 import Dashboard from './pages/Dashboard';
 import Students from './pages/Students';
@@ -31,9 +31,8 @@ import QuestionAnalytics from './pages/QuestionAnalytics';
 
 function App() {
   return (
-    <BrowserRouter>
-      <Navbar />
-      <div style={{ padding: '2rem', fontFamily: 'sans-serif' }}>
+      <BrowserRouter>
+      <Layout>
         <Routes>
           <Route path="/login" element={<Login />} />
 
@@ -260,7 +259,8 @@ function App() {
           />
         </Routes>
 
-      </div>
+      
+      </Layout>
     </BrowserRouter>
   );
 }
