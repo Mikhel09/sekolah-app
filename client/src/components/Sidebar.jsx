@@ -38,6 +38,7 @@ const MENU_SECTIONS = [
     items: [
       { to: '/reports/attendance', label: 'Laporan Absensi', icon: CalendarCheck, roles: ['ADMIN', 'TEACHER'] },
       { to: '/reports/class-comparison', label: 'Perbandingan Kelas', icon: TrendingUp, roles: ['ADMIN'] },
+      { to: '/import-history', label: 'Riwayat Import', icon: History, roles: ['ADMIN', 'TEACHER'] },   // BARU
     ],
   },
   {

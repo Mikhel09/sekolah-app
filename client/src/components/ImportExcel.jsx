@@ -6,12 +6,15 @@ function ImportExcel({ endpoint, onSuccess, contohKolom }) {
   const [loading, setLoading] = useState(false);
   const [hasil, setHasil] = useState(null);
   const [error, setError] = useState('');
+  const [undoing, setUndoing] = useState(false);
+  const [sudahDibatalkan, setSudahDibatalkan] = useState(false);
 
   const handleUpload = async () => {
     if (!file) return;
     setLoading(true);
     setError('');
     setHasil(null);
+    setSudahDibatalkan(false);
 
     const formData = new FormData();
     formData.append('file', file);
@@ -27,6 +30,31 @@ function ImportExcel({ endpoint, onSuccess, contohKolom }) {
       setError('Gagal mengimpor file. Pastikan format kolom sudah benar.');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleUndo = async () => {
+    if (!hasil?.batchId) return;
+    const yakin = window.confirm(
+      `Yakin ingin membatalkan import ini? ${hasil.berhasil} data yang baru saja masuk akan dihapus.`
+    );
+    if (!yakin) return;
+
+    setUndoing(true);
+    try {
+      const res = await api.post(`/import-logs/${hasil.batchId}/undo`);
+      setSudahDibatalkan(true);
+      onSuccess(); // refresh daftar data di halaman
+      alert(
+        `${res.data.berhasilDihapus} data berhasil dihapus.` +
+        (res.data.gagalDihapus.length > 0
+          ? ` ${res.data.gagalDihapus.length} data tidak bisa dihapus karena sudah dipakai di tempat lain.`
+          : '')
+      );
+    } catch (err) {
+      alert(err.response?.data?.error || 'Gagal membatalkan import');
+    } finally {
+      setUndoing(false);
     }
   };
 
@@ -55,9 +83,20 @@ function ImportExcel({ endpoint, onSuccess, contohKolom }) {
         <p className="text-red-600 text-sm mt-3">{error}</p>
       )}
 
-      {hasil && (
+      {hasil && !sudahDibatalkan && (
         <div className="mt-3 text-sm">
-          <p className="text-green-600">✓ {hasil.berhasil} data berhasil ditambahkan</p>
+          <div className="flex items-center justify-between bg-green-50 border border-green-200 rounded-md px-3 py-2">
+            <p className="text-green-700">✓ {hasil.berhasil} data berhasil ditambahkan</p>
+            {hasil.batchId && (
+              <button
+                onClick={handleUndo}
+                disabled={undoing}
+                className="text-red-600 hover:underline text-xs font-medium disabled:opacity-50 flex-shrink-0 ml-3"
+              >
+                {undoing ? 'Membatalkan...' : 'Batalkan Import Ini'}
+              </button>
+            )}
+          </div>
           {hasil.gagal.length > 0 && (
             <div className="mt-2">
               <p className="text-red-600">✗ {hasil.gagal.length} data gagal:</p>
@@ -69,6 +108,12 @@ function ImportExcel({ endpoint, onSuccess, contohKolom }) {
             </div>
           )}
         </div>
+      )}
+
+      {sudahDibatalkan && (
+        <p className="text-slate-500 text-sm mt-3 bg-slate-50 border border-slate-200 rounded-md px-3 py-2">
+          Import ini sudah dibatalkan.
+        </p>
       )}
     </div>
   );

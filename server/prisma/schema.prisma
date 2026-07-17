@@ -22,11 +22,13 @@ model User {
   role      Role
   photo     String?  @db.Text
   createdAt DateTime @default(now())
+  
 
   teacher       Teacher?
   student       Student?
   parent        Parent?
   notifications Notification[]
+  importLogs ImportLog[]
 }
 
 model Teacher {
@@ -37,7 +39,8 @@ model Teacher {
 
   homeroomOf Class[]    @relation("HomeroomTeacher")
   schedules  Schedule[]
-  exams      Exam[]  
+  exams      Exam[]
+  importBatchId String?
 }
 
 model Student {
@@ -51,7 +54,8 @@ model Student {
   attendances Attendance[]
   grades      Grade[]
   examResults ExamResult[]
-  parents     ParentStudent[]   // BARU
+  parents     ParentStudent[]
+  importBatchId String?
 }
 
 model Class {
@@ -62,7 +66,8 @@ model Class {
 
   students  Student[]
   schedules Schedule[]
-  exams     Exam[]  
+  exams     Exam[]
+  importBatchId String?
 }
 
 model Subject {
@@ -72,7 +77,8 @@ model Subject {
   schedules Schedule[]
   grades    Grade[]
   questions Question[] 
-  exams     Exam[]     
+  exams     Exam[]
+  importBatchId String?   
 }
 
 model Schedule {
@@ -87,6 +93,7 @@ model Schedule {
   class   Class   @relation(fields: [classId], references: [id])
   subject Subject @relation(fields: [subjectId], references: [id])
   teacher Teacher @relation(fields: [teacherId], references: [id])
+  importBatchId String?
 }
 
 model Attendance {
@@ -128,10 +135,12 @@ model Question {
   optionC       String?
   optionD       String?
   correctAnswer String?
+  importBatchId String?
   createdAt     DateTime @default(now())
 
   examQuestions ExamQuestion[]
   essayAnswers  EssayAnswer[]
+  
 }
 
 model Exam {
@@ -214,4 +223,15 @@ model Notification {
   link      String?  // opsional, kemana user diarahkan kalau klik notifikasi
   isRead    Boolean  @default(false)
   createdAt DateTime @default(now())
+}
+
+model ImportLog {
+  id             Int      @id @default(autoincrement())
+  batchId        String   @unique
+  entityType     String   // "STUDENT", "TEACHER", "CLASS", "SUBJECT", "SCHEDULE", "QUESTION"
+  totalRecords   Int
+  importedBy     Int
+  importedByUser User     @relation(fields: [importedBy], references: [id])
+  undone         Boolean  @default(false)
+  createdAt      DateTime @default(now())
 }

@@ -11,6 +11,7 @@ const { verifyToken, allowRoles } = require('./middlewares/auth');
 const app = express();
 const prisma = new PrismaClient();
 const upload = multer({ storage: multer.memoryStorage() });
+const crypto = require('crypto');
 
 app.use(cors({
   origin: ['http://localhost:5173', 'https://sekolah-app-eta.vercel.app'],
@@ -265,6 +266,7 @@ app.delete('/api/students/:id', verifyToken, allowRoles('ADMIN'), async (req, re
 });
 
 app.post('/api/students/import', verifyToken, allowRoles('ADMIN'), upload.single('file'), async (req, res) => {
+  const batchId = crypto.randomUUID();
   try {
     const workbook = XLSX.read(req.file.buffer, { type: 'buffer' });
     const sheet = workbook.Sheets[workbook.SheetNames[0]];
@@ -289,7 +291,7 @@ app.post('/api/students/import', verifyToken, allowRoles('ADMIN'), upload.single
             email: `${nis}@siswa.sekolah.com`,
             password,
             role: 'STUDENT',
-            student: { create: { nis: String(nis), classId: kelas.id } },
+            student: { create: { nis: String(nis), classId: kelas.id, importBatchId: batchId } },
           },
         });
 
@@ -299,7 +301,18 @@ app.post('/api/students/import', verifyToken, allowRoles('ADMIN'), upload.single
       }
     }
 
-    res.json(hasil);
+    if (hasil.berhasil > 0) {
+      await prisma.importLog.create({
+        data: {
+          batchId,
+          entityType: 'STUDENT',
+          totalRecords: hasil.berhasil,
+          importedBy: req.user.userId,
+        },
+      });
+    }
+
+    res.json({ ...hasil, batchId: hasil.berhasil > 0 ? batchId : null });
   } catch (err) {
     res.status(400).json({ error: err.message });
   }
@@ -466,6 +479,7 @@ app.delete('/api/teachers/:id', verifyToken, allowRoles('ADMIN'), async (req, re
 });
 
 app.post('/api/teachers/import', verifyToken, allowRoles('ADMIN'), upload.single('file'), async (req, res) => {
+  const batchId = crypto.randomUUID();
   try {
     const workbook = XLSX.read(req.file.buffer, { type: 'buffer' });
     const sheet = workbook.Sheets[workbook.SheetNames[0]];
@@ -484,7 +498,7 @@ app.post('/api/teachers/import', verifyToken, allowRoles('ADMIN'), upload.single
             email: String(email),
             password,
             role: 'TEACHER',
-            teacher: { create: { nip: String(nip) } },
+            teacher: { create: { nip: String(nip), importBatchId: batchId } },
           },
         });
 
@@ -494,7 +508,13 @@ app.post('/api/teachers/import', verifyToken, allowRoles('ADMIN'), upload.single
       }
     }
 
-    res.json(hasil);
+    if (hasil.berhasil > 0) {
+      await prisma.importLog.create({
+        data: { batchId, entityType: 'TEACHER', totalRecords: hasil.berhasil, importedBy: req.user.userId },
+      });
+    }
+
+    res.json({ ...hasil, batchId: hasil.berhasil > 0 ? batchId : null });
   } catch (err) {
     res.status(400).json({ error: err.message });
   }
@@ -581,6 +601,7 @@ app.delete('/api/classes/:id', verifyToken, allowRoles('ADMIN'), async (req, res
 });
 
 app.post('/api/classes/import', verifyToken, allowRoles('ADMIN'), upload.single('file'), async (req, res) => {
+  const batchId = crypto.randomUUID();
   try {
     const workbook = XLSX.read(req.file.buffer, { type: 'buffer' });
     const sheet = workbook.Sheets[workbook.SheetNames[0]];
@@ -590,14 +611,20 @@ app.post('/api/classes/import', verifyToken, allowRoles('ADMIN'), upload.single(
 
     for (const row of rows) {
       try {
-        await prisma.class.create({ data: { name: String(row.name) } });
+        await prisma.class.create({ data: { name: String(row.name), importBatchId: batchId } });
         hasil.berhasil++;
       } catch (err) {
         hasil.gagal.push({ row, alasan: err.message });
       }
     }
 
-    res.json(hasil);
+    if (hasil.berhasil > 0) {
+      await prisma.importLog.create({
+        data: { batchId, entityType: 'CLASS', totalRecords: hasil.berhasil, importedBy: req.user.userId },
+      });
+    }
+
+    res.json({ ...hasil, batchId: hasil.berhasil > 0 ? batchId : null });
   } catch (err) {
     res.status(400).json({ error: err.message });
   }
@@ -633,6 +660,7 @@ app.delete('/api/subjects/:id', verifyToken, allowRoles('ADMIN'), async (req, re
 });
 
 app.post('/api/subjects/import', verifyToken, allowRoles('ADMIN'), upload.single('file'), async (req, res) => {
+  const batchId = crypto.randomUUID();
   try {
     const workbook = XLSX.read(req.file.buffer, { type: 'buffer' });
     const sheet = workbook.Sheets[workbook.SheetNames[0]];
@@ -642,14 +670,20 @@ app.post('/api/subjects/import', verifyToken, allowRoles('ADMIN'), upload.single
 
     for (const row of rows) {
       try {
-        await prisma.subject.create({ data: { name: String(row.name) } });
+        await prisma.subject.create({ data: { name: String(row.name), importBatchId: batchId } });
         hasil.berhasil++;
       } catch (err) {
         hasil.gagal.push({ row, alasan: err.message });
       }
     }
 
-    res.json(hasil);
+    if (hasil.berhasil > 0) {
+      await prisma.importLog.create({
+        data: { batchId, entityType: 'SUBJECT', totalRecords: hasil.berhasil, importedBy: req.user.userId },
+      });
+    }
+
+    res.json({ ...hasil, batchId: hasil.berhasil > 0 ? batchId : null });
   } catch (err) {
     res.status(400).json({ error: err.message });
   }
@@ -701,6 +735,7 @@ app.delete('/api/schedules/:id', verifyToken, allowRoles('ADMIN'), async (req, r
 });
 
 app.post('/api/schedules/import', verifyToken, allowRoles('ADMIN'), upload.single('file'), async (req, res) => {
+  const batchId = crypto.randomUUID();
   try {
     const workbook = XLSX.read(req.file.buffer, { type: 'buffer' });
     const sheet = workbook.Sheets[workbook.SheetNames[0]];
@@ -741,6 +776,7 @@ app.post('/api/schedules/import', verifyToken, allowRoles('ADMIN'), upload.singl
             day: String(day),
             startTime: String(startTime),
             endTime: String(endTime),
+            importBatchId: batchId,
           },
         });
 
@@ -750,7 +786,13 @@ app.post('/api/schedules/import', verifyToken, allowRoles('ADMIN'), upload.singl
       }
     }
 
-    res.json(hasil);
+    if (hasil.berhasil > 0) {
+      await prisma.importLog.create({
+        data: { batchId, entityType: 'SCHEDULE', totalRecords: hasil.berhasil, importedBy: req.user.userId },
+      });
+    }
+
+    res.json({ ...hasil, batchId: hasil.berhasil > 0 ? batchId : null });
   } catch (err) {
     res.status(400).json({ error: err.message });
   }
@@ -797,6 +839,7 @@ app.post('/api/questions', verifyToken, allowRoles('ADMIN', 'TEACHER'), async (r
 });
 
 app.post('/api/questions/import', verifyToken, allowRoles('ADMIN', 'TEACHER'), upload.single('file'), async (req, res) => {
+  const batchId = crypto.randomUUID();
   try {
     const workbook = XLSX.read(req.file.buffer, { type: 'buffer' });
     const sheet = workbook.Sheets[workbook.SheetNames[0]];
@@ -823,6 +866,7 @@ app.post('/api/questions/import', verifyToken, allowRoles('ADMIN', 'TEACHER'), u
             optionC: String(optionC),
             optionD: String(optionD),
             correctAnswer: String(correctAnswer).toUpperCase(),
+            importBatchId: batchId,
           },
         });
 
@@ -832,7 +876,13 @@ app.post('/api/questions/import', verifyToken, allowRoles('ADMIN', 'TEACHER'), u
       }
     }
 
-    res.json(hasil);
+    if (hasil.berhasil > 0) {
+      await prisma.importLog.create({
+        data: { batchId, entityType: 'QUESTION', totalRecords: hasil.berhasil, importedBy: req.user.userId },
+      });
+    }
+
+    res.json({ ...hasil, batchId: hasil.berhasil > 0 ? batchId : null });
   } catch (err) {
     res.status(400).json({ error: err.message });
   }
@@ -918,6 +968,138 @@ app.get('/api/questions/analytics', verifyToken, allowRoles('ADMIN', 'TEACHER'),
         }
       }
     }
+
+    res.json(hasil);
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+// ==========================================
+// ENDPOINT RIWAYAT IMPORT & BATALKAN
+// ==========================================
+
+// Ambil riwayat import (ADMIN lihat semua, TEACHER cuma lihat miliknya sendiri)
+app.get('/api/import-logs', verifyToken, allowRoles('ADMIN', 'TEACHER'), async (req, res) => {
+  try {
+    const where = req.user.role === 'ADMIN' ? {} : { importedBy: req.user.userId };
+    const logs = await prisma.importLog.findMany({
+      where,
+      include: { importedByUser: true },
+      orderBy: { createdAt: 'desc' },
+      take: 30,
+    });
+    res.json(logs);
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+// Batalkan satu batch import (hapus semua data yang masuk lewat batch itu)
+app.post('/api/import-logs/:batchId/undo', verifyToken, allowRoles('ADMIN', 'TEACHER'), async (req, res) => {
+  const { batchId } = req.params;
+
+  try {
+    const log = await prisma.importLog.findUnique({ where: { batchId } });
+    if (!log) {
+      return res.status(404).json({ error: 'Riwayat import tidak ditemukan' });
+    }
+    if (log.undone) {
+      return res.status(400).json({ error: 'Import ini sudah pernah dibatalkan sebelumnya' });
+    }
+    if (req.user.role !== 'ADMIN' && log.importedBy !== req.user.userId) {
+      return res.status(403).json({ error: 'Kamu hanya bisa membatalkan import milikmu sendiri' });
+    }
+
+    const hasil = { berhasilDihapus: 0, gagalDihapus: [] };
+
+    if (log.entityType === 'STUDENT') {
+      const rows = await prisma.student.findMany({ where: { importBatchId: batchId } });
+      for (const s of rows) {
+        try {
+          await prisma.attendance.deleteMany({ where: { studentId: s.id } });
+          await prisma.grade.deleteMany({ where: { studentId: s.id } });
+          await prisma.parentStudent.deleteMany({ where: { studentId: s.id } });
+          const examResults = await prisma.examResult.findMany({ where: { studentId: s.id } });
+          for (const er of examResults) {
+            await prisma.essayAnswer.deleteMany({ where: { examResultId: er.id } });
+          }
+          await prisma.examResult.deleteMany({ where: { studentId: s.id } });
+          await prisma.student.delete({ where: { id: s.id } });
+          await prisma.user.delete({ where: { id: s.userId } });
+          hasil.berhasilDihapus++;
+        } catch (err) {
+          hasil.gagalDihapus.push({ nama: s.nis, alasan: err.message });
+        }
+      }
+    }
+
+    if (log.entityType === 'TEACHER') {
+      const rows = await prisma.teacher.findMany({ where: { importBatchId: batchId } });
+      for (const t of rows) {
+        try {
+          await prisma.teacher.delete({ where: { id: t.id } });
+          await prisma.user.delete({ where: { id: t.userId } });
+          hasil.berhasilDihapus++;
+        } catch (err) {
+          hasil.gagalDihapus.push({ nama: t.nip, alasan: 'Guru ini sudah dipakai di jadwal/ujian, tidak bisa dihapus' });
+        }
+      }
+    }
+
+    if (log.entityType === 'CLASS') {
+      const rows = await prisma.class.findMany({ where: { importBatchId: batchId } });
+      for (const c of rows) {
+        try {
+          await prisma.class.delete({ where: { id: c.id } });
+          hasil.berhasilDihapus++;
+        } catch (err) {
+          hasil.gagalDihapus.push({ nama: c.name, alasan: 'Kelas ini sudah ada siswa/jadwal di dalamnya, tidak bisa dihapus' });
+        }
+      }
+    }
+
+    if (log.entityType === 'SUBJECT') {
+      const rows = await prisma.subject.findMany({ where: { importBatchId: batchId } });
+      for (const s of rows) {
+        try {
+          await prisma.subject.delete({ where: { id: s.id } });
+          hasil.berhasilDihapus++;
+        } catch (err) {
+          hasil.gagalDihapus.push({ nama: s.name, alasan: 'Mapel ini sudah dipakai di jadwal/nilai/soal, tidak bisa dihapus' });
+        }
+      }
+    }
+
+    if (log.entityType === 'SCHEDULE') {
+      const rows = await prisma.schedule.findMany({ where: { importBatchId: batchId } });
+      for (const s of rows) {
+        try {
+          await prisma.schedule.delete({ where: { id: s.id } });
+          hasil.berhasilDihapus++;
+        } catch (err) {
+          hasil.gagalDihapus.push({ nama: `${s.day} ${s.startTime}`, alasan: err.message });
+        }
+      }
+    }
+
+    if (log.entityType === 'QUESTION') {
+      const rows = await prisma.question.findMany({ where: { importBatchId: batchId } });
+      for (const q of rows) {
+        try {
+          await prisma.question.delete({ where: { id: q.id } });
+          hasil.berhasilDihapus++;
+        } catch (err) {
+          hasil.gagalDihapus.push({ nama: q.questionText.slice(0, 30), alasan: 'Soal ini sudah dipakai di ujian, tidak bisa dihapus' });
+        }
+      }
+    }
+
+    // Tandai batch ini sudah dibatalkan
+    await prisma.importLog.update({
+      where: { batchId },
+      data: { undone: true },
+    });
 
     res.json(hasil);
   } catch (err) {

@@ -28,7 +28,7 @@ import MyChildren from './pages/MyChildren';
 import ChildDetail from './pages/ChildDetail';
 import GradeEssay from './pages/GradeEssay';
 import QuestionAnalytics from './pages/QuestionAnalytics';
-
+import ImportHistory from './pages/ImportHistory';
 function App() {
   return (
       <BrowserRouter>
@@ -254,6 +254,14 @@ function App() {
             element={
               <ProtectedRoute allowedRoles={['ADMIN', 'TEACHER']}>
                 <QuestionAnalytics />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/import-history"
+            element={
+              <ProtectedRoute allowedRoles={['ADMIN', 'TEACHER']}>
+                <ImportHistory />
               </ProtectedRoute>
             }
           />
