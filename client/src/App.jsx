@@ -26,6 +26,7 @@ import TakeExam from './pages/TakeExam';
 import Parents from './pages/Parents';
 import MyChildren from './pages/MyChildren';
 import ChildDetail from './pages/ChildDetail';
+import GradeEssay from './pages/GradeEssay';
 
 function App() {
   return (
@@ -237,6 +238,14 @@ function App() {
             element={
               <ProtectedRoute allowedRoles={['PARENT']}>
                 <ChildDetail />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/exam-results/:resultId/grade"
+            element={
+              <ProtectedRoute allowedRoles={['ADMIN', 'TEACHER']}>
+                <GradeEssay />
               </ProtectedRoute>
             }
           />

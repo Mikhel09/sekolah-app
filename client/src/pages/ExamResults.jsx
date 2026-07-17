@@ -32,13 +32,14 @@ function ExamResults() {
               <th className="text-left px-4 py-3 font-semibold text-slate-600">Peringkat</th>
               <th className="text-left px-4 py-3 font-semibold text-slate-600">Nama Siswa</th>
               <th className="text-left px-4 py-3 font-semibold text-slate-600">Skor</th>
-              <th className="text-left px-4 py-3 font-semibold text-slate-600">Waktu Submit</th>
+              <th className="text-left px-4 py-3 font-semibold text-slate-600">Status</th>
+              <th className="text-left px-4 py-3 font-semibold text-slate-600">Pindah Tab</th>
             </tr>
           </thead>
           <tbody>
             {results.length === 0 && (
               <tr>
-                <td colSpan="4" className="px-4 py-4 text-center text-slate-400">
+                <td colSpan="5" className="px-4 py-4 text-center text-slate-400">
                   Belum ada siswa yang mengerjakan
                 </td>
               </tr>
@@ -48,8 +49,28 @@ function ExamResults() {
                 <td className="px-4 py-3 text-slate-500">#{i + 1}</td>
                 <td className="px-4 py-3">{r.student.user.name}</td>
                 <td className="px-4 py-3 font-semibold">{r.score}</td>
-                <td className="px-4 py-3 text-slate-500">
-                  {new Date(r.submittedAt).toLocaleString('id-ID')}
+                <td className="px-4 py-3">
+                  {r.isFullyGraded ? (
+                    <span className="bg-green-50 text-green-700 px-2 py-0.5 rounded text-xs font-medium">
+                      Sudah Final
+                    </span>
+                  ) : (
+                    <Link
+                      to={`/exam-results/${r.id}/grade`}
+                      className="bg-yellow-50 text-yellow-700 px-2 py-0.5 rounded text-xs font-medium hover:bg-yellow-100"
+                    >
+                      Perlu Dinilai →
+                    </Link>
+                  )}
+                </td>
+                <td className="px-4 py-3">
+                  {r.tabSwitchCount > 0 ? (
+                    <span className="text-red-600 font-medium text-xs">
+                      ⚠ {r.tabSwitchCount}x
+                    </span>
+                  ) : (
+                    <span className="text-slate-400 text-xs">-</span>
+                  )}
                 </td>
               </tr>
             ))}
