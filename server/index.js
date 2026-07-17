@@ -893,6 +893,20 @@ app.post('/api/exams', verifyToken, allowRoles('ADMIN', 'TEACHER'), async (req, 
       },
     });
 
+    // BARU: Kirim notifikasi ke semua siswa di kelas itu
+    const studentsInClass = await prisma.student.findMany({
+      where: { classId: Number(classId) },
+      select: { userId: true },
+    });
+    await prisma.notification.createMany({
+      data: studentsInClass.map((s) => ({
+        userId: s.userId,
+        title: 'Ujian Baru',
+        message: `Ujian "${title}" telah dijadwalkan untuk kelasmu`,
+        link: '/my-exams',
+      })),
+    });
+
     res.json(exam);
   } catch (err) {
     res.status(400).json({ error: err.message });
@@ -955,6 +969,54 @@ app.get('/api/me/exams', verifyToken, allowRoles('STUDENT'), async (req, res) =>
     }));
 
     res.json(examsWithStatus);
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+// ==========================================
+// ENDPOINT NOTIFIKASI
+// ==========================================
+
+// Ambil notifikasi milik user yang login (terbaru dulu)
+app.get('/api/notifications', verifyToken, async (req, res) => {
+  try {
+    const notifications = await prisma.notification.findMany({
+      where: { userId: req.user.userId },
+      orderBy: { createdAt: 'desc' },
+      take: 20, // ambil 20 terbaru saja, supaya tidak berat
+    });
+    const unreadCount = await prisma.notification.count({
+      where: { userId: req.user.userId, isRead: false },
+    });
+    res.json({ notifications, unreadCount });
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+// Tandai satu notifikasi sudah dibaca
+app.put('/api/notifications/:id/read', verifyToken, async (req, res) => {
+  const id = Number(req.params.id);
+  try {
+    await prisma.notification.update({
+      where: { id },
+      data: { isRead: true },
+    });
+    res.json({ message: 'Ditandai sudah dibaca' });
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+// Tandai semua notifikasi sudah dibaca
+app.put('/api/notifications/read-all', verifyToken, async (req, res) => {
+  try {
+    await prisma.notification.updateMany({
+      where: { userId: req.user.userId, isRead: false },
+      data: { isRead: true },
+    });
+    res.json({ message: 'Semua ditandai sudah dibaca' });
   } catch (err) {
     res.status(400).json({ error: err.message });
   }
@@ -1075,6 +1137,18 @@ app.post('/api/announcements', verifyToken, allowRoles('ADMIN'), async (req, res
     const announcement = await prisma.announcement.create({
       data: { title, content },
     });
+
+    // Kirim notifikasi ke SEMUA user
+    const allUsers = await prisma.user.findMany({ select: { id: true } });
+    await prisma.notification.createMany({
+      data: allUsers.map((u) => ({
+        userId: u.id,
+        title: 'Pengumuman Baru',
+        message: title,
+        link: '/announcements',
+      })),
+    });
+
     res.json(announcement);
   } catch (err) {
     res.status(400).json({ error: err.message });

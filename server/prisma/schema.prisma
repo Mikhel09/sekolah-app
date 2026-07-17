@@ -23,9 +23,10 @@ model User {
   photo     String?  @db.Text
   createdAt DateTime @default(now())
 
-  teacher Teacher?
-  student Student?
-  parent  Parent? 
+  teacher       Teacher?
+  student       Student?
+  parent        Parent?
+  notifications Notification[]
 }
 
 model Teacher {
@@ -186,4 +187,15 @@ model ParentStudent {
   student   Student @relation(fields: [studentId], references: [id])
 
   @@unique([parentId, studentId]) // 1 kombinasi orang tua-anak cuma bisa terhubung 1x
+}
+
+model Notification {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  user      User     @relation(fields: [userId], references: [id])
+  title     String
+  message   String
+  link      String?  // opsional, kemana user diarahkan kalau klik notifikasi
+  isRead    Boolean  @default(false)
+  createdAt DateTime @default(now())
 }

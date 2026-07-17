@@ -1,4 +1,5 @@
 import { Link, useNavigate } from 'react-router-dom';
+import NotificationBell from './NotificationBell';
 
 function Navbar() {
   const navigate = useNavigate();
@@ -72,6 +73,7 @@ function Navbar() {
       <div className="flex items-center gap-3">
         {user ? (
           <>
+            <NotificationBell />
             <Link to="/profile" className="flex items-center gap-2 hover:opacity-80 transition-opacity">
               <div className="w-8 h-8 rounded-full bg-slate-600 overflow-hidden flex items-center justify-center border border-slate-500">
                 {user.photo ? (
