@@ -306,6 +306,75 @@ app.post('/api/students/import', verifyToken, allowRoles('ADMIN'), upload.single
 });
 
 // ==========================================
+// ENDPOINT ORANG TUA (SISI ORANG TUA SENDIRI)
+// ==========================================
+
+// Ambil daftar anak milik orang tua yang sedang login
+app.get('/api/me/children', verifyToken, allowRoles('PARENT'), async (req, res) => {
+  try {
+    const parent = await prisma.parent.findUnique({ where: { userId: req.user.userId } });
+    if (!parent) {
+      return res.status(404).json({ error: 'Data orang tua tidak ditemukan' });
+    }
+
+    const children = await prisma.parentStudent.findMany({
+      where: { parentId: parent.id },
+      include: { student: { include: { user: true, class: true } } },
+    });
+
+    const daftarAnak = children.map((c) => ({
+      id: c.student.id,
+      name: c.student.user.name,
+      nis: c.student.nis,
+      className: c.student.class.name,
+    }));
+
+    res.json(daftarAnak);
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+// Ambil detail lengkap satu anak (nilai, absensi, jadwal) — HANYA kalau memang anaknya sendiri
+app.get('/api/me/children/:studentId', verifyToken, allowRoles('PARENT'), async (req, res) => {
+  const studentId = Number(req.params.studentId);
+  try {
+    const parent = await prisma.parent.findUnique({ where: { userId: req.user.userId } });
+    if (!parent) {
+      return res.status(404).json({ error: 'Data orang tua tidak ditemukan' });
+    }
+
+    // PENTING: verifikasi bahwa siswa ini memang anak dari orang tua yang login
+    const validLink = await prisma.parentStudent.findUnique({
+      where: { parentId_studentId: { parentId: parent.id, studentId } },
+    });
+    if (!validLink) {
+      return res.status(403).json({ error: 'Kamu tidak punya akses ke data siswa ini' });
+    }
+
+    const student = await prisma.student.findUnique({
+      where: { id: studentId },
+      include: {
+        user: true,
+        class: true,
+        grades: { include: { subject: true } },
+        attendances: { orderBy: { date: 'desc' } },
+      },
+    });
+
+    const schedules = await prisma.schedule.findMany({
+      where: { classId: student.classId },
+      include: { subject: true, teacher: { include: { user: true } } },
+      orderBy: { day: 'asc' },
+    });
+
+    res.json({ ...student, schedules });
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+// ==========================================
 // ENDPOINT NILAI & ABSENSI
 // ==========================================
 
@@ -1118,6 +1187,86 @@ app.get('/api/reports/attendance', verifyToken, allowRoles('ADMIN', 'TEACHER'), 
     });
 
     res.json(laporan);
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+// ==========================================
+// ENDPOINT ORANG TUA (ADMIN)
+// ==========================================
+
+// Ambil semua akun orang tua, beserta anak-anak yang sudah terhubung
+app.get('/api/parents', verifyToken, allowRoles('ADMIN'), async (req, res) => {
+  try {
+    const parents = await prisma.parent.findMany({
+      include: {
+        user: true,
+        children: { include: { student: { include: { user: true, class: true } } } },
+      },
+    });
+    res.json(parents);
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+// Buat akun orang tua baru
+app.post('/api/parents', verifyToken, allowRoles('ADMIN'), async (req, res) => {
+  const { name, email } = req.body;
+  try {
+    const password = await bcrypt.hash('ganti123', 10);
+    const parent = await prisma.user.create({
+      data: {
+        name,
+        email,
+        password,
+        role: 'PARENT',
+        parent: { create: {} },
+      },
+      include: { parent: true },
+    });
+    res.json(parent);
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+// Hapus akun orang tua
+app.delete('/api/parents/:id', verifyToken, allowRoles('ADMIN'), async (req, res) => {
+  const id = Number(req.params.id);
+  try {
+    const parent = await prisma.parent.findUnique({ where: { id } });
+    await prisma.parentStudent.deleteMany({ where: { parentId: id } });
+    await prisma.parent.delete({ where: { id } });
+    await prisma.user.delete({ where: { id: parent.userId } });
+    res.json({ message: 'Akun orang tua dihapus' });
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+// Hubungkan orang tua ke seorang siswa
+app.post('/api/parents/:id/link-student', verifyToken, allowRoles('ADMIN'), async (req, res) => {
+  const parentId = Number(req.params.id);
+  const { studentId } = req.body;
+  try {
+    const link = await prisma.parentStudent.create({
+      data: { parentId, studentId: Number(studentId) },
+    });
+    res.json(link);
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+// Putuskan hubungan orang tua dari seorang siswa
+app.delete('/api/parents/:id/link-student/:studentId', verifyToken, allowRoles('ADMIN'), async (req, res) => {
+  const parentId = Number(req.params.id);
+  const studentId = Number(req.params.studentId);
+  try {
+    await prisma.parentStudent.deleteMany({ where: { parentId, studentId } });
+    res.json({ message: 'Hubungan dihapus' });
   } catch (err) {
     res.status(400).json({ error: err.message });
   }

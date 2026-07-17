@@ -25,6 +25,7 @@ model User {
 
   teacher Teacher?
   student Student?
+  parent  Parent? 
 }
 
 model Teacher {
@@ -48,7 +49,8 @@ model Student {
 
   attendances Attendance[]
   grades      Grade[]
-  examResults ExamResult[]  
+  examResults ExamResult[]
+  parents     ParentStudent[]   // BARU
 }
 
 model Class {
@@ -166,4 +168,22 @@ model ExamResult {
   submittedAt DateTime @default(now())
 
   @@unique([examId, studentId]) // satu siswa cuma boleh submit 1x per ujian
+}
+
+model Parent {
+  id     Int    @id @default(autoincrement())
+  userId Int    @unique
+  user   User   @relation(fields: [userId], references: [id])
+
+  children ParentStudent[]
+}
+
+model ParentStudent {
+  id        Int     @id @default(autoincrement())
+  parentId  Int
+  parent    Parent  @relation(fields: [parentId], references: [id])
+  studentId Int
+  student   Student @relation(fields: [studentId], references: [id])
+
+  @@unique([parentId, studentId]) // 1 kombinasi orang tua-anak cuma bisa terhubung 1x
 }
