@@ -121,15 +121,17 @@ model Question {
   id            Int      @id @default(autoincrement())
   subjectId     Int
   subject       Subject  @relation(fields: [subjectId], references: [id])
+  type          String   @default("MULTIPLE_CHOICE") // "MULTIPLE_CHOICE" atau "ESSAY"
   questionText  String   @db.Text
-  optionA       String
-  optionB       String
-  optionC       String
-  optionD       String
-  correctAnswer String   // isi salah satu: "A", "B", "C", atau "D"
+  optionA       String?
+  optionB       String?
+  optionC       String?
+  optionD       String?
+  correctAnswer String?
   createdAt     DateTime @default(now())
 
   examQuestions ExamQuestion[]
+  essayAnswers  EssayAnswer[]
 }
 
 model Exam {
@@ -159,16 +161,30 @@ model ExamQuestion {
 }
 
 model ExamResult {
-  id          Int      @id @default(autoincrement())
-  examId      Int
-  exam        Exam     @relation(fields: [examId], references: [id])
-  studentId   Int
-  student     Student  @relation(fields: [studentId], references: [id])
-  score       Float
-  answers     String   @db.Text // disimpan sebagai teks JSON, contoh: {"1":"A","2":"C"}
-  submittedAt DateTime @default(now())
+  id             Int      @id @default(autoincrement())
+  examId         Int
+  exam           Exam     @relation(fields: [examId], references: [id])
+  studentId      Int
+  student        Student  @relation(fields: [studentId], references: [id])
+  score          Float
+  answers        String   @db.Text
+  isFullyGraded  Boolean  @default(true)
+  tabSwitchCount Int      @default(0)
+  submittedAt    DateTime @default(now())
 
-  @@unique([examId, studentId]) // satu siswa cuma boleh submit 1x per ujian
+  essayAnswers EssayAnswer[]
+
+  @@unique([examId, studentId])
+}
+
+model EssayAnswer {
+  id           Int        @id @default(autoincrement())
+  examResultId Int
+  examResult   ExamResult @relation(fields: [examResultId], references: [id])
+  questionId   Int
+  question     Question   @relation(fields: [questionId], references: [id])
+  answerText   String     @db.Text
+  score        Float?     // null = belum dinilai guru, diisi setelah guru menilai
 }
 
 model Parent {

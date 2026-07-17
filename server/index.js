@@ -776,17 +776,18 @@ app.get('/api/questions', verifyToken, allowRoles('ADMIN', 'TEACHER'), async (re
 });
 
 app.post('/api/questions', verifyToken, allowRoles('ADMIN', 'TEACHER'), async (req, res) => {
-  const { subjectId, questionText, optionA, optionB, optionC, optionD, correctAnswer } = req.body;
+  const { subjectId, type, questionText, optionA, optionB, optionC, optionD, correctAnswer } = req.body;
   try {
     const question = await prisma.question.create({
       data: {
         subjectId: Number(subjectId),
+        type: type || 'MULTIPLE_CHOICE',
         questionText,
-        optionA,
-        optionB,
-        optionC,
-        optionD,
-        correctAnswer,
+        optionA: type === 'ESSAY' ? null : optionA,
+        optionB: type === 'ESSAY' ? null : optionB,
+        optionC: type === 'ESSAY' ? null : optionC,
+        optionD: type === 'ESSAY' ? null : optionD,
+        correctAnswer: type === 'ESSAY' ? null : correctAnswer,
       },
     });
     res.json(question);
@@ -1048,6 +1049,7 @@ app.get('/api/exams/:id/take', verifyToken, allowRoles('STUDENT'), async (req, r
 
     const soal = exam.examQuestions.map((eq) => ({
       id: eq.question.id,
+      type: eq.question.type,
       questionText: eq.question.questionText,
       optionA: eq.question.optionA,
       optionB: eq.question.optionB,
@@ -1070,7 +1072,8 @@ app.get('/api/exams/:id/take', verifyToken, allowRoles('STUDENT'), async (req, r
 // Submit jawaban ujian, nilai otomatis dihitung (dengan cek batas waktu)
 app.post('/api/exams/:id/submit', verifyToken, allowRoles('STUDENT'), async (req, res) => {
   const examId = Number(req.params.id);
-  const { answers } = req.body;
+  const { answers, tabSwitchCount } = req.body;
+  // answers format: { "1": "A", "2": "Jawaban essay teks..." }
 
   try {
     const student = await prisma.student.findUnique({ where: { userId: req.user.userId } });
@@ -1096,27 +1099,116 @@ app.post('/api/exams/:id/submit', verifyToken, allowRoles('STUDENT'), async (req
       include: { question: true },
     });
 
+    // Pisahkan soal pilihan ganda dan essay
+    const soalPG = examQuestions.filter((eq) => eq.question.type === 'MULTIPLE_CHOICE');
+    const soalEssay = examQuestions.filter((eq) => eq.question.type === 'ESSAY');
+
+    // Hitung skor dari pilihan ganda saja dulu
     let jumlahBenar = 0;
-    examQuestions.forEach((eq) => {
+    soalPG.forEach((eq) => {
       const jawabanSiswa = answers[eq.question.id];
       if (jawabanSiswa === eq.question.correctAnswer) {
         jumlahBenar++;
       }
     });
-    const score = examQuestions.length > 0
-      ? Math.round((jumlahBenar / examQuestions.length) * 100)
-      : 0;
 
-    await prisma.examResult.create({
+    const totalSoal = examQuestions.length;
+    const adaEssay = soalEssay.length > 0;
+
+    // Skor sementara: essay dianggap 0 dulu sampai dinilai guru
+    const score = totalSoal > 0 ? Math.round((jumlahBenar / totalSoal) * 100) : 0;
+
+    // Simpan hasil ujian
+    const result = await prisma.examResult.create({
       data: {
         examId,
         studentId: student.id,
         score,
         answers: JSON.stringify(answers),
+        isFullyGraded: !adaEssay, // langsung final kalau tidak ada essay sama sekali
+        tabSwitchCount: tabSwitchCount || 0,
       },
     });
 
-    res.json({ score, jumlahBenar, totalSoal: examQuestions.length });
+    // Simpan jawaban essay secara terpisah, untuk dinilai guru nanti
+    if (adaEssay) {
+      await prisma.essayAnswer.createMany({
+        data: soalEssay.map((eq) => ({
+          examResultId: result.id,
+          questionId: eq.question.id,
+          answerText: answers[eq.question.id] || '',
+        })),
+      });
+    }
+
+    res.json({
+      score,
+      jumlahBenar,
+      totalSoal,
+      adaEssayBelumDinilai: adaEssay,
+    });
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+// Ambil jawaban essay yang perlu dinilai untuk satu hasil ujian siswa
+app.get('/api/exam-results/:resultId/essay-answers', verifyToken, allowRoles('ADMIN', 'TEACHER'), async (req, res) => {
+  const resultId = Number(req.params.resultId);
+  try {
+    const essayAnswers = await prisma.essayAnswer.findMany({
+      where: { examResultId: resultId },
+      include: { question: true },
+    });
+    res.json(essayAnswers);
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+// Guru submit nilai untuk jawaban-jawaban essay
+app.post('/api/exam-results/:resultId/grade-essay', verifyToken, allowRoles('ADMIN', 'TEACHER'), async (req, res) => {
+  const resultId = Number(req.params.resultId);
+  const { grades } = req.body; // format: { "questionId": skor0to100, ... }
+
+  try {
+    // Update skor tiap jawaban essay
+    for (const questionId in grades) {
+      await prisma.essayAnswer.updateMany({
+        where: { examResultId: resultId, questionId: Number(questionId) },
+        data: { score: Number(grades[questionId]) },
+      });
+    }
+
+    // Hitung ulang skor akhir gabungan (pilihan ganda + essay)
+    const examResult = await prisma.examResult.findUnique({ where: { id: resultId } });
+    const examQuestions = await prisma.examQuestion.findMany({
+      where: { examId: examResult.examId },
+      include: { question: true },
+    });
+    const totalSoal = examQuestions.length;
+
+    const savedAnswers = JSON.parse(examResult.answers);
+    let poinPG = 0;
+    examQuestions
+      .filter((eq) => eq.question.type === 'MULTIPLE_CHOICE')
+      .forEach((eq) => {
+        if (savedAnswers[eq.question.id] === eq.question.correctAnswer) {
+          poinPG++;
+        }
+      });
+
+    const essayAnswers = await prisma.essayAnswer.findMany({ where: { examResultId: resultId } });
+    const poinEssay = essayAnswers.reduce((sum, e) => sum + (e.score || 0) / 100, 0);
+
+    const skorAkhir = totalSoal > 0 ? Math.round(((poinPG + poinEssay) / totalSoal) * 100) : 0;
+
+    const updated = await prisma.examResult.update({
+      where: { id: resultId },
+      data: { score: skorAkhir, isFullyGraded: true },
+    });
+
+    res.json(updated);
   } catch (err) {
     res.status(400).json({ error: err.message });
   }
