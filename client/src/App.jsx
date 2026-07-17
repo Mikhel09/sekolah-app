@@ -23,6 +23,9 @@ import Exams from './pages/Exams';
 import ExamResults from './pages/ExamResults';
 import StudentExams from './pages/StudentExams';
 import TakeExam from './pages/TakeExam';
+import Parents from './pages/Parents';
+import MyChildren from './pages/MyChildren';
+import ChildDetail from './pages/ChildDetail';
 
 function App() {
   return (
@@ -208,6 +211,32 @@ function App() {
             element={
               <ProtectedRoute allowedRoles={['STUDENT']}>
                 <TakeExam />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/parents"
+            element={
+              <ProtectedRoute allowedRoles={['ADMIN']}>
+                <Parents />
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/my-children"
+            element={
+              <ProtectedRoute allowedRoles={['PARENT']}>
+                <MyChildren />
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/my-children/:studentId"
+            element={
+              <ProtectedRoute allowedRoles={['PARENT']}>
+                <ChildDetail />
               </ProtectedRoute>
             }
           />

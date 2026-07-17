@@ -34,6 +34,9 @@ function Navbar() {
         {user && user.role === 'ADMIN' && (
           <Link to="/schedules" className={linkClass}>Jadwal</Link>
         )}
+        {user && user.role === 'ADMIN' && (
+          <Link to="/parents" className={linkClass}>Orang Tua</Link>
+        )}
         {user && user.role === 'TEACHER' && (
           <Link to="/my-classes" className={linkClass}>Kelas Saya</Link>
         )}
@@ -57,6 +60,9 @@ function Navbar() {
         )}
         {user && user.role === 'STUDENT' && (
           <Link to="/my-exams" className={linkClass}>Ujian Saya</Link>
+        )}
+        {user && user.role === 'PARENT' && (
+          <Link to="/my-children" className={linkClass}>Anak Saya</Link>
         )}
         {user && (
           <Link to="/announcements" className={linkClass}>Pengumuman</Link>
