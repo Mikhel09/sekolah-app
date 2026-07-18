@@ -1,4 +1,13 @@
 require('dotenv').config();
+// Bersihkan nama guru dari gelar & spasi berlebih, supaya lebih gampang dicocokkan
+function normalisasiNamaGuru(nama) {
+  return String(nama)
+    .split(',')[0]                              // buang semua gelar setelah tanda koma (contoh: ", M.Pd")
+    .replace(/\b(Drs|Dra|Ir|H|Hj|Prof|Dr)\.?\b/gi, '')  // buang gelar depan yang umum
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, ' ');                       // rapikan spasi ganda jadi 1 spasi
+}
 const express = require('express');
 const cors = require('cors');
 const bcrypt = require('bcryptjs');
@@ -682,30 +691,41 @@ app.post('/api/classes/import', verifyToken, allowRoles('ADMIN'), upload.single(
 
     const hasil = { berhasil: 0, gagal: [] };
 
+    // Ambil SEMUA guru sekali di awal, supaya pencocokan nama bisa dilakukan secara fleksibel di JavaScript
+    const semuaGuru = await prisma.teacher.findMany({ include: { user: true } });
+    const petaGuruByNamaBersih = new Map();
+    semuaGuru.forEach((t) => {
+      petaGuruByNamaBersih.set(normalisasiNamaGuru(t.user.name), t.id);
+    });
+    const petaGuruByEmail = new Map();
+    semuaGuru.forEach((t) => {
+      petaGuruByEmail.set(t.user.email.toLowerCase(), t.id);
+    });
+
     for (const row of rows) {
       try {
         const { className, gradeLevel, homeroomTeacher } = row;
 
         if (!className) {
-          hasil.gagal.push({ row, alasan: 'className wajib diisi' });
+          hasil.gagal.push({ row, alasan: 'className wajib diisi (cek nama kolom header Excel kamu persis "className")' });
           continue;
         }
 
         let homeroomTeacherId = null;
         if (homeroomTeacher) {
           const hrValue = String(homeroomTeacher).trim();
-          // Boleh isi email ATAU nama guru di kolom ini
-          let teacherUser;
+
           if (hrValue.includes('@')) {
-            teacherUser = await prisma.user.findUnique({ where: { email: hrValue }, include: { teacher: true } });
+            homeroomTeacherId = petaGuruByEmail.get(hrValue.toLowerCase()) || null;
           } else {
-            teacherUser = await prisma.user.findFirst({ where: { name: hrValue, role: 'TEACHER' }, include: { teacher: true } });
+            homeroomTeacherId = petaGuruByNamaBersih.get(normalisasiNamaGuru(hrValue)) || null;
           }
 
-          if (teacherUser && teacherUser.teacher) {
-            homeroomTeacherId = teacherUser.teacher.id;
-          } else {
-            hasil.gagal.push({ row: { className, homeroomTeacher: hrValue }, alasan: `Wali kelas "${hrValue}" tidak ditemukan — kelas tetap dibuat tanpa wali kelas` });
+          if (!homeroomTeacherId) {
+            hasil.gagal.push({
+              row: { className, homeroomTeacher: hrValue },
+              alasan: `Wali kelas "${hrValue}" tidak ditemukan (dicoba dicocokkan sebagai "${normalisasiNamaGuru(hrValue)}") — kelas tetap dibuat tanpa wali kelas`,
+            });
           }
         }
 
