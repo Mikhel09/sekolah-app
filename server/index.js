@@ -483,8 +483,39 @@ app.put('/api/teachers/:id', verifyToken, allowRoles('ADMIN'), async (req, res) 
 
 app.delete('/api/teachers/:id', verifyToken, allowRoles('ADMIN'), async (req, res) => {
   const id = Number(req.params.id);
-  await prisma.teacher.delete({ where: { id } });
-  res.json({ message: 'Guru dihapus' });
+  try {
+    const teacher = await prisma.teacher.findUnique({ where: { id } });
+    if (!teacher) {
+      return res.status(404).json({ error: 'Guru tidak ditemukan' });
+    }
+
+    // Cek dulu apakah guru ini masih dipakai di tempat lain
+    const jadiWaliKelas = await prisma.class.findFirst({ where: { homeroomTeacherId: id } });
+    if (jadiWaliKelas) {
+      return res.status(400).json({ error: `Guru ini masih jadi wali kelas ${jadiWaliKelas.name}. Ganti wali kelasnya dulu sebelum menghapus.` });
+    }
+
+    const adaJadwal = await prisma.schedule.findFirst({ where: { teacherId: id } });
+    if (adaJadwal) {
+      return res.status(400).json({ error: 'Guru ini masih punya jadwal mengajar. Hapus jadwalnya dulu sebelum menghapus guru.' });
+    }
+
+    const adaUjian = await prisma.exam.findFirst({ where: { teacherId: id } });
+    if (adaUjian) {
+      return res.status(400).json({ error: 'Guru ini pernah membuat ujian. Tidak bisa dihapus untuk menjaga riwayat data.' });
+    }
+
+    // Aman dihapus: hapus relasi mapel dulu (ini boleh dihapus bebas, cuma "tag" mapel apa saja yang diampu)
+    await prisma.teacherSubject.deleteMany({ where: { teacherId: id } });
+
+    // Baru hapus data guru dan akun usernya
+    await prisma.teacher.delete({ where: { id } });
+    await prisma.user.delete({ where: { id: teacher.userId } });
+
+    res.json({ message: 'Guru berhasil dihapus' });
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
 });
 
 app.post('/api/teachers/import', verifyToken, allowRoles('ADMIN'), upload.single('file'), async (req, res) => {
@@ -512,12 +543,16 @@ app.post('/api/teachers/import', verifyToken, allowRoles('ADMIN'), upload.single
           .map((key) => String(row[key]).trim());
 
         const subjectLinks = [];
-        for (const subjName of subjectNames) {
-          const subj = await prisma.subject.findFirst({ where: { name: subjName } });
+        for (const subjNameRaw of subjectNames) {
+          const subjName = subjNameRaw.trim();
+          // Pencarian tidak peduli huruf besar/kecil dan spasi berlebih
+          const subj = await prisma.subject.findFirst({
+            where: { name: { equals: subjName, mode: 'insensitive' } },
+          });
           if (subj) {
             subjectLinks.push({ subjectId: subj.id });
           } else {
-            hasil.gagal.push({ row: { teacherName, subjek: subjName }, alasan: `Mapel "${subjName}" tidak ditemukan, dilewati (guru tetap dibuat)` });
+            hasil.gagal.push({ row: { teacherName, subjek: subjName }, alasan: `Mapel "${subjName}" tidak ditemukan persis di database, dilewati (guru tetap dibuat)` });
           }
         }
 
@@ -723,8 +758,31 @@ app.post('/api/subjects', verifyToken, allowRoles('ADMIN'), async (req, res) => 
 app.delete('/api/subjects/:id', verifyToken, allowRoles('ADMIN'), async (req, res) => {
   const id = Number(req.params.id);
   try {
+    const adaJadwal = await prisma.schedule.findFirst({ where: { subjectId: id } });
+    if (adaJadwal) {
+      return res.status(400).json({ error: 'Mapel ini masih dipakai di jadwal. Hapus jadwalnya dulu sebelum menghapus mapel.' });
+    }
+
+    const adaNilai = await prisma.grade.findFirst({ where: { subjectId: id } });
+    if (adaNilai) {
+      return res.status(400).json({ error: 'Mapel ini sudah punya data nilai siswa. Tidak bisa dihapus untuk menjaga riwayat data.' });
+    }
+
+    const adaSoal = await prisma.question.findFirst({ where: { subjectId: id } });
+    if (adaSoal) {
+      return res.status(400).json({ error: 'Mapel ini masih punya soal di Bank Soal. Hapus soalnya dulu sebelum menghapus mapel.' });
+    }
+
+    const adaUjian = await prisma.exam.findFirst({ where: { subjectId: id } });
+    if (adaUjian) {
+      return res.status(400).json({ error: 'Mapel ini sudah pernah dipakai untuk ujian. Tidak bisa dihapus untuk menjaga riwayat data.' });
+    }
+
+    // Aman dihapus: bersihkan dulu relasi ke guru (ini cuma "tag", boleh dihapus bebas)
+    await prisma.teacherSubject.deleteMany({ where: { subjectId: id } });
+
     await prisma.subject.delete({ where: { id } });
-    res.json({ message: 'Mata pelajaran dihapus' });
+    res.json({ message: 'Mata pelajaran berhasil dihapus' });
   } catch (err) {
     res.status(400).json({ error: err.message });
   }
